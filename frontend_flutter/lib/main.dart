@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
 // import 'package:http/http.dart' as http; 
 // import 'dart:convert';
@@ -33,16 +34,28 @@ class HomePage extends StatefulWidget {
   HomePageState createState() => HomePageState();
 }
 
+// Organ options
+enum Organ {flower, leaf, fruit, bark, auto,}
+Organ selectedOrgan = Organ.flower;
 
 class HomePageState extends State<HomePage> {
-  // State variable to control animation
+  // State variables to control animations
   bool _isSubmitted = false;
+  bool _imageMoved = false;
+  bool _identificationLoading = true;
+  
   // Image to upload to backend
   File? _image;
   final picker = ImagePicker();
+  
   // Results from backend
-  String? _genus; 
-  double? _score;
+  // String? _genus; 
+  // double? _score;
+  // String? _commonNames;
+
+  // Text to display
+  String _identificationResult = 'Identifying with PlantNet...';
+  // String _detailResult = "Finding details...";
 
   // Function to take a photo using the device camera
   Future<void> _takePhoto() async {
@@ -56,12 +69,6 @@ class HomePageState extends State<HomePage> {
       if (pickedFile != null) {
         setState(() {
           _image = File(pickedFile.path);
-        });
-
-        // Ensure the layout is recalculated immediately after state change
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          // Force a layout rebuild
-          setState(() {});
         });
 
         // Show SnackBar using ScaffoldMessenger of the current context
@@ -95,12 +102,6 @@ class HomePageState extends State<HomePage> {
           _image = File(pickedFile.path);
         });
 
-        // Ensure the layout is recalculated immediately after state change
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          // Force a layout rebuild
-          setState(() {});
-        });
-
         // Show SnackBar using ScaffoldMessenger of the current context
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Photo added successfully')),
@@ -131,7 +132,10 @@ class HomePageState extends State<HomePage> {
     setState(() {
       _isSubmitted = true;
     });
-    return;
+    
+    // _genus = "Genus goes here";
+    // _score = 0.96;
+    // _commonNames = "Common names go here";
     
     // try {
     //   // Replace with FastAPI backend URL (use environment config?)
@@ -184,10 +188,13 @@ class HomePageState extends State<HomePage> {
   }
 
   // Function to reset app to home page (with no image)
-  void _reset() async {
+  void _reset() {
     setState(() {
       _image = null;
       _isSubmitted = false;
+      _imageMoved = false;
+      _identificationLoading = true;
+      _identificationResult = "Identifying with PlantNet...";
     });
   }
 
@@ -214,16 +221,12 @@ class HomePageState extends State<HomePage> {
           padding: const EdgeInsets.all(8.0),
           child: Stack(
             alignment: Alignment.center,
-            children: [
-               Positioned(
-                 bottom: screenHeight / 2 + 5,
-                 left: 0,
-                 right: 0,
-                 child: _image != null
-                  ? AnimatedPositioned(
+            children: [             
+               _image != null
+                ? AnimatedPositioned(
                     duration: const Duration(milliseconds: 500),
                     curve: Curves.easeInOut,
-                    top: _isSubmitted ? 50 : screenHeight / 2 - 300,
+                    top: _isSubmitted ? 52 : screenHeight / 2 - 300,
                     left: screenWidth / 2 - (_isSubmitted ? 100 : 150),
                     child:
                         AnimatedContainer(
@@ -239,6 +242,11 @@ class HomePageState extends State<HomePage> {
                                 width: 4.0,
                               ),
                             ),
+                            onEnd: () {
+                              setState(() {
+                                _imageMoved = true;
+                              });
+                            },
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(16),
                               child: Image.file(
@@ -250,25 +258,29 @@ class HomePageState extends State<HomePage> {
                             ),
                           ),
                   )
-            
-                  : const Center(
-                      child: FractionallySizedBox(
-                          alignment: Alignment.center,
-                          widthFactor: 0.9,
-                          child: Text(
-                            'Garden Glossary',
-                            style: TextStyle(
-                              fontSize: 50,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                            softWrap: true,
-                            overflow: TextOverflow.visible,
+                           
+                : Positioned(
+                    bottom: screenHeight / 2 + 5,
+                    left: 0,
+                    right: 0,
+                    child: const FractionallySizedBox(
+                        alignment: Alignment.center,
+                        widthFactor: 0.9,
+                        child: Text(
+                          'Garden Glossary',
+                          style: TextStyle(
+                            fontSize: 50,
+                            fontWeight: FontWeight.bold,
                           ),
+                          textAlign: TextAlign.center,
+                          softWrap: true,
+                          overflow: TextOverflow.visible,
                         ),
-                    ),
-               ), 
-          
+                      ),
+                  ), 
+
+
+              // Display buttons before submission
               if (!_isSubmitted)
                 Positioned(
                   top: screenHeight / 2 + 5, 
@@ -289,7 +301,7 @@ class HomePageState extends State<HomePage> {
                             child: const Text('Camera'),
                           ),
                           
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 20),
           
                           // Button to upload photo
                           ElevatedButton(
@@ -301,12 +313,40 @@ class HomePageState extends State<HomePage> {
           
                       const SizedBox(height: 20),
           
+                      // Selector for organ
+                      Row(
+                        children: [
+                          const Text(
+                            "Organ:",
+                            style: TextStyle(
+                              fontSize: 20,
+                            )),
+                          SizedBox(
+                            width: 120,
+                            child: CupertinoPicker(
+                              itemExtent: 28.0,
+                              onSelectedItemChanged: (int index) {
+                                setState(() {
+                                  selectedOrgan = Organ.values[index];
+                                });
+                              },
+                              children: Organ.values.map((organ) {
+                                return Center(child: Text(organ.toString().split('.').last));
+                              }).toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 100),
+          
                       // Button to upload photo
                       ElevatedButton(
                         onPressed: _uploadImage,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: theme.colorScheme.primary,
                           foregroundColor: theme.colorScheme.onPrimary,
+                          minimumSize: const Size(200, 40),
                         ),
                         child: const Text('Submit'),
                       ),
@@ -314,32 +354,19 @@ class HomePageState extends State<HomePage> {
                   ),
                ),
                 
-              // Display results if available
-              if (_isSubmitted && _genus != null)
+
+              // Display identification results
+              if (_isSubmitted && _imageMoved)
                 Positioned(
-                  top: MediaQuery.of(context).size.height / 2 + 200,
+                  top: 280,
                   left: 0,
                   right: 0,
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Text(
-                          'Genus: $_genus',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (_score != null)
-                          Text(
-                            'Probability: ${_score!*100}%',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey,
-                            ),
-                          ),
-                      ],
-                    ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: ResultsBox(
+                      loading: _identificationLoading,
+                      resultText: _identificationResult,
+                      ),
                   ),
                 ),
               
@@ -355,9 +382,88 @@ class HomePageState extends State<HomePage> {
                   child: const Icon(Icons.refresh), 
                 ),
               ),
+
+              // Positioned settings button
+              Positioned(
+                bottom: 16.0,
+                right: 16.0,
+                child: FloatingActionButton(
+                  onPressed: null,
+                  backgroundColor: theme.colorScheme.onPrimary,
+                  foregroundColor: theme.colorScheme.primary, 
+                  mini: true, // Makes the button smaller
+                  child: const Icon(Icons.settings), 
+                ),
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+
+class ResultsBox extends StatefulWidget {
+  const ResultsBox({
+    super.key,
+    required this.loading,
+    required this.resultText,
+  });
+
+  final bool loading;
+  final String resultText;
+
+  @override
+  State<ResultsBox> createState() => _ResultsBoxState();
+}
+
+class _ResultsBoxState extends State<ResultsBox> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation; 
+  
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 700),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _animation = Tween<double>(begin: 0.3, end: 1.0).animate(_controller);
+  }
+
+  @override
+  void didUpdateWidget(covariant ResultsBox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.loading) {
+      _controller.forward();
+    } else {
+      _controller.stop();
+      _controller.value = 1;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10.0),
+      decoration: BoxDecoration(
+        color: Colors.lightGreen[50],
+        border: Border.all(color: Colors.black, width: 1.0),
+        borderRadius: BorderRadius.circular(10.0),
+      ),
+      child: FadeTransition(
+        opacity: _animation,
+        child: Text(
+          widget.resultText
+          ),
       ),
     );
   }
