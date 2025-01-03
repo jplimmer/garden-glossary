@@ -1,13 +1,13 @@
 from dotenv import load_dotenv
 import os
-from fastapi import FastAPI, File, UploadFile, HTTPException
+
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import uuid
 
 import requests
 import json
-
 from selenium import webdriver
 
 import logging
@@ -39,15 +39,14 @@ app.add_middleware(
 )
 
 
-
-# image_path = "C:\\Users\\james\\OneDrive\\Documents\\Coding\\Projects\\garden-glossary\\backend_python\\images\\test_image.JPEG"
-# image_path = "..\\images\\test_image.jpeg"
-
-@app.post("/process-image/")
-async def process_image(file: UploadFile = File(...)):
+@app.post("/identify-image/")
+async def process_image(
+    file: UploadFile = File(...),
+    organ: str = Form(...)
+):
+    
     try:
         # Ensure uploads directory exists
-        logging.info("Entered first try loop")
         os.makedirs("uploads", exist_ok=True)
         
         # Generate a unique filename
@@ -60,15 +59,16 @@ async def process_image(file: UploadFile = File(...)):
             file_object.write(await file.read())
         
         try:
-            # Call your existing image processing function
-            genus, score = plantnet_identification(file_location)
+            # Identify plant using PlantNet API
+            genus, score, commonNames = plantnet_identification(file_location, organ)
             
             # Optional: Remove the file after processing if you don't need to keep it
             os.remove(file_location)
             
             return {
                 "genus": genus,
-                "score": score
+                "score": score,
+                "commonNames": commonNames,
             }
         
         except Exception as processing_error:
@@ -82,13 +82,10 @@ async def process_image(file: UploadFile = File(...)):
         # Handle file upload errors
         raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
 
-def plantnet_identification(image_path):  
-    logging.info("Entered plantnet_identification() function")
+def plantnet_identification(image_path, organ):  
     image_data = open(image_path, 'rb')
     
-    data = { 
-        'organs': ['flower'] # to be updated from frontend
-    }
+    data = {'organs': [organ]}
 
     files = [
         ('images', ((image_path), (image_data)))
@@ -106,12 +103,10 @@ def plantnet_identification(image_path):
     logging.info(results[0])
 
     genus = results[0]['species']['genus']['scientificNameWithoutAuthor']
-    logging.info(genus)
-
     score = results[0]['score']
-    logging.info(score)
+    commonNames = results[0]['species']['commonNames']
 
-    return genus, score
+    return genus, score, commonNames
 
 
 if __name__ == "__main__":
@@ -120,7 +115,7 @@ if __name__ == "__main__":
 
 
 # Scrape RHS
-# rhs_url = f"https://www.rhs.org.uk/plants/{genus}"
+# rhs_url = f"https://www.rhs.org.uk/plants/{genus}"?
 # driver = webdriver.Chrome()
 # driver.maximize_window()
 # driver.get(rhs_url)

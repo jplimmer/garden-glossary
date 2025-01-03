@@ -1,11 +1,15 @@
 import 'dart:io';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:garden_glossary/config/environment.dart';
 import 'package:image_picker/image_picker.dart';
-// import 'package:http/http.dart' as http; 
-// import 'dart:convert';
+import 'package:http/http.dart' as http; 
+import 'dart:convert';
 
-void main() {
+void main() async {
+  await dotenv.load();
+  Config.setEnvironment(Environment.physical);
   runApp(const MyApp());
 }
 
@@ -39,23 +43,31 @@ enum Organ {flower, leaf, fruit, bark, auto,}
 Organ selectedOrgan = Organ.flower;
 
 class HomePageState extends State<HomePage> {
+  // Access apiUrl from config
+  String apiUrl = Config.apiUrl;
+  
   // State variables to control animations
   bool _isSubmitted = false;
   bool _imageMoved = false;
-  bool _identificationLoading = true;
-  
+  bool _idLoading = true;
+  bool _detailLoading = true;
+
+  // Widget key/height mapping
+  Map<GlobalKey, double?> resultBoxHeights = {};
+  GlobalKey idResultBox = GlobalKey();
+  GlobalKey detailResultBox = GlobalKey();
+
   // Image to upload to backend
   File? _image;
   final picker = ImagePicker();
   
-  // Results from backend
-  // String? _genus; 
-  // double? _score;
-  // String? _commonNames;
-
   // Text to display
-  String _identificationResult = 'Identifying with PlantNet...';
-  // String _detailResult = "Finding details...";
+  TextSpan _idResult = const TextSpan(text: 'Identifying with PlantNet...',
+                                                  style: TextStyle(color: Colors.black)
+                                                  );
+  TextSpan _detailResult = const TextSpan(text: "Finding details...",
+                                          style: TextStyle(color: Colors.black)
+                                          );
 
   // Function to take a photo using the device camera
   Future<void> _takePhoto() async {
@@ -121,7 +133,6 @@ class HomePageState extends State<HomePage> {
   
   // Function to upload the image to the backend
   Future<void> _uploadImage() async {
-    debugPrint('_uploadImage function entered');
     if (_image == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select an image first')),
@@ -133,68 +144,115 @@ class HomePageState extends State<HomePage> {
       _isSubmitted = true;
     });
     
-    // _genus = "Genus goes here";
-    // _score = 0.96;
-    // _commonNames = "Common names go here";
-    
-    // try {
-    //   // Replace with FastAPI backend URL (use environment config?)
-    //   // var uri = Uri.parse('http://10.0.2.2:8000/process-image/'); // uri for Android emulator
-    //   var uri = Uri.parse('http://192.168.86.120:8000/process-image/'); // uri for physical Android device (home)
+    try {
+      String url = '$apiUrl/identify-image/';
+      var uri = Uri.parse(url);
       
-    //   // Create multipart request
-    //   var request = http.MultipartRequest('POST', uri);
+      // Create multipart request
+      var request = http.MultipartRequest('POST', uri);
       
-    //   // Add the file to the request
-    //   request.files.add(
-    //     await http.MultipartFile.fromPath(
-    //       'file',  // This must match the parameter name in FastAPI
-    //       _image!.path
-    //     )
-    //   );
+      // Add the image file to the request
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          _image!.path
+        )
+      );
 
-    //   // Send the request
-    //   var response = await request.send();
+      // Add the selected organ to the request
+      request.fields['organ'] = selectedOrgan.name;
 
-    //   // Read and parse the response
-    //   var responseBody = await response.stream.bytesToString();
-
-    //   // Check the response
-    //   if (!mounted) return;
+      // Send the request
+      var response = await request.send();
       
-    //   if (response.statusCode == 200) {
-    //     var jsonResponse = json.decode(responseBody);
+      // Read and parse the response
+      var responseBody = await response.stream.bytesToString();
 
-    //     setState(() {
-    //       _genus = jsonResponse['genus'];
-    //       _score = jsonResponse['score'];
-    //     });
-
-    //   } else {
-    //     ScaffoldMessenger.of(context).showSnackBar(
-    //       SnackBar(content: Text('Upload failed with status ${response.statusCode}')),
-    //     );
-    //   }
-    // } catch (e) {
-    //   setState(() {
-    //     _isSubmitted = false;
-    //   });
+      // Check the response - further error-handling required here?
+      if (!mounted) return;
       
-    //   debugPrint('Error uploading image: $e');
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     SnackBar(content: Text('Error uploading image: $e')),
-    //   );
-    // }
+      if (response.statusCode == 200) {
+        var jsonResponse = json.decode(responseBody);
+
+        String genus = jsonResponse['genus'];
+        double score = jsonResponse['score'];
+        score = double.parse(score.toStringAsFixed(4)); // rounding to 4 decimals
+        String commonNames = jsonResponse['commonNames'].join(', ');
+
+        // Update idResult and loading status
+        setState(() {
+          _idResult = TextSpan(
+            style: const TextStyle(color: Colors.black, height: 1.5),
+            children: <TextSpan>[
+              const TextSpan(
+                text: 'Genus: ',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+              TextSpan(text: genus),
+              TextSpan(
+                text: ' (${score*100}% probability)',
+                style: const TextStyle(fontStyle: FontStyle.italic),
+              ),
+              const TextSpan(
+                text: '\nCommon Names: ',
+                style: TextStyle(fontWeight: FontWeight.bold)
+              ),
+              TextSpan(text: commonNames),
+            ]
+          );
+          _idLoading = false;          
+        });
+
+        // Once rendered, measure height of idResultBox to position detailResultBox
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _measureHeight(idResultBox);
+        });
+
+      } else {
+        setState(() {
+          _isSubmitted = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed with status ${response.statusCode}')),
+        );
+      }
+
+    } catch (e) {
+      setState(() {
+        _isSubmitted = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error uploading image: $e')),
+      );
+    }
   }
 
+  // Function to measure ResultBox height
+  void _measureHeight(GlobalKey key) {
+    final RenderBox? renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null) {
+      final h = renderBox.size.height;
+      setState(() {
+        resultBoxHeights[key] = h;
+      });
+    }
+  }
+  
   // Function to reset app to home page (with no image)
   void _reset() {
     setState(() {
       _image = null;
       _isSubmitted = false;
       _imageMoved = false;
-      _identificationLoading = true;
-      _identificationResult = "Identifying with PlantNet...";
+      _idLoading = true;
+      _idResult = const TextSpan(
+        text: 'Identifying with PlantNet...',
+        style: TextStyle(color: Colors.black));
+      _detailLoading = true;
+      _detailResult = const TextSpan(
+        text: "Finding details...",
+        style: TextStyle(color: Colors.black));
     });
   }
 
@@ -358,17 +416,35 @@ class HomePageState extends State<HomePage> {
               // Display identification results
               if (_isSubmitted && _imageMoved)
                 Positioned(
-                  top: 280,
+                  top: 270,
                   left: 0,
                   right: 0,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),
                     child: ResultsBox(
-                      loading: _identificationLoading,
-                      resultText: _identificationResult,
+                      key: idResultBox,
+                      loading: _idLoading,
+                      resultText: _idResult,
                       ),
                   ),
                 ),
+
+              // Display detail results
+              if (_isSubmitted && !_idLoading)
+                Positioned(
+                  top: 270 + (resultBoxHeights[idResultBox] ?? 0) + 10,
+                  left: 0,
+                  right: 0,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: ResultsBox(
+                      key: detailResultBox,
+                      loading: _detailLoading,
+                      resultText: _detailResult, 
+                    ),
+                  ),
+                ),
+
               
               // Positioned reset button
               Positioned(
@@ -412,7 +488,7 @@ class ResultsBox extends StatefulWidget {
   });
 
   final bool loading;
-  final String resultText;
+  final TextSpan resultText;
 
   @override
   State<ResultsBox> createState() => _ResultsBoxState();
@@ -461,9 +537,9 @@ class _ResultsBoxState extends State<ResultsBox> with SingleTickerProviderStateM
       ),
       child: FadeTransition(
         opacity: _animation,
-        child: Text(
-          widget.resultText
-          ),
+        child: RichText(
+          text: widget.resultText,
+        ),
       ),
     );
   }
