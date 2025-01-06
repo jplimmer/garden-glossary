@@ -40,7 +40,7 @@ app.add_middleware(
 
 
 @app.post("/identify-image/")
-async def process_image(
+async def identify_image(
     file: UploadFile = File(...),
     organ: str = Form(...)
 ):
