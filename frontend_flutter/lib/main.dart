@@ -62,12 +62,12 @@ class HomePageState extends State<HomePage> {
   final picker = ImagePicker();
   
   // Text to display
-  TextSpan _idResult = const TextSpan(text: 'Identifying with PlantNet...',
-                                                  style: TextStyle(color: Colors.black)
-                                                  );
   TextSpan _detailResult = const TextSpan(text: "Finding details...",
                                           style: TextStyle(color: Colors.black)
                                           );
+
+  // Matches to display
+  List<IDMatch> matchOptions = [];
 
   // Function to take a photo using the device camera
   Future<void> _takePhoto() async {
@@ -168,38 +168,29 @@ class HomePageState extends State<HomePage> {
       // Read and parse the response
       var responseBody = await response.stream.bytesToString();
 
-      // Check the response - further error-handling required here?
+      // Check widget still mounted
       if (!mounted) return;
       
+      // Check the response - further error-handling required here?
       if (response.statusCode == 200) {
         var jsonResponse = json.decode(responseBody);
 
-        String genus = jsonResponse['genus'];
-        double score = jsonResponse['score'];
-        score = double.parse(score.toStringAsFixed(4)); // rounding to 4 decimals
-        String commonNames = jsonResponse['commonNames'].join(', ');
-
+        List <IDMatch> matchOptionsList = [];
+        jsonResponse['matches'].forEach((key, value) {
+          String commonNamesString = (value['commonNames'] as List<dynamic>).join(', ');
+          matchOptionsList.add(
+            IDMatch(
+              genus: value['genus'],
+              score: value['score'],
+              commonNames: commonNamesString,
+            )
+          );
+        });
+          
         // Update idResult and loading status
         setState(() {
-          _idResult = TextSpan(
-            style: const TextStyle(color: Colors.black, height: 1.5),
-            children: <TextSpan>[
-              const TextSpan(
-                text: 'Genus: ',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-              TextSpan(text: genus),
-              TextSpan(
-                text: ' (${score*100}% probability)',
-                style: const TextStyle(fontStyle: FontStyle.italic),
-              ),
-              const TextSpan(
-                text: '\nCommon Names: ',
-                style: TextStyle(fontWeight: FontWeight.bold)
-              ),
-              TextSpan(text: commonNames),
-            ]
-          );
-          _idLoading = false;          
+          _idLoading = false;
+          matchOptions = matchOptionsList;
         });
 
         // Once rendered, measure height of idResultBox to position detailResultBox
@@ -246,9 +237,6 @@ class HomePageState extends State<HomePage> {
       _isSubmitted = false;
       _imageMoved = false;
       _idLoading = true;
-      _idResult = const TextSpan(
-        text: 'Identifying with PlantNet...',
-        style: TextStyle(color: Colors.black));
       _detailLoading = true;
       _detailResult = const TextSpan(
         text: "Finding details...",
@@ -421,29 +409,35 @@ class HomePageState extends State<HomePage> {
                   right: 0,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                    child: ResultsBox(
+                    child: IDBox(
                       key: idResultBox,
                       loading: _idLoading,
-                      resultText: _idResult,
+                      loadingText: const TextSpan(text: 'Identifying with PlantNet...',
+                                                  style: TextStyle(color: Colors.black)
+                                                  ),
+                      matches: matchOptions,
+                      onMatchSelected: (index) {
+                        debugPrint('Selected match: $index');
+                      },
                       ),
                   ),
                 ),
 
               // Display detail results
-              if (_isSubmitted && !_idLoading)
-                Positioned(
-                  top: 270 + (resultBoxHeights[idResultBox] ?? 0) + 10,
-                  left: 0,
-                  right: 0,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                    child: ResultsBox(
-                      key: detailResultBox,
-                      loading: _detailLoading,
-                      resultText: _detailResult, 
-                    ),
-                  ),
-                ),
+              // if (_isSubmitted && !_idLoading)
+              //   Positioned(
+              //     top: 270 + (resultBoxHeights[idResultBox] ?? 0) + 10,
+              //     left: 0,
+              //     right: 0,
+              //     child: Padding(
+              //       padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              //       child: DetailBox(
+              //         key: detailResultBox,
+              //         loading: _detailLoading,
+              //         resultText: _detailResult, 
+              //       ),
+              //     ),
+              //   ),
 
               
               // Positioned reset button
@@ -480,21 +474,194 @@ class HomePageState extends State<HomePage> {
 }
 
 
-class ResultsBox extends StatefulWidget {
-  const ResultsBox({
+class IDMatch extends StatelessWidget {
+  final String genus;
+  final double score;
+  final String commonNames;
+
+  const IDMatch({
+    super.key,
+    required this.genus,
+    required this.score,
+    required this.commonNames,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        style: const TextStyle(color: Colors.black, height: 1.5),
+        children: <TextSpan>[
+          const TextSpan(
+            text: 'Genus: ',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+          TextSpan(text: genus),
+          TextSpan(
+            text: ' (${(score*100).toStringAsFixed(2)}% probability)',
+            style: const TextStyle(fontStyle: FontStyle.italic),
+          ),
+          const TextSpan(
+            text: '\nCommon Names: ',
+            style: TextStyle(fontWeight: FontWeight.bold)
+          ),
+          TextSpan(text: commonNames),
+        ],
+      ),
+    );
+  }
+}
+
+
+class IDBox extends StatefulWidget {
+  final bool loading;
+  final TextSpan loadingText;
+  final List<IDMatch> matches;
+  final int initialSelectedIndex;
+  final Function(int) onMatchSelected; 
+
+  const IDBox({
+    super.key,
+    required this.loading,
+    required this.loadingText,
+    required this.matches,
+    required this.onMatchSelected,
+    this.initialSelectedIndex = 0,
+  });
+
+  @override
+  State<IDBox> createState() => _IDBoxState();
+}
+
+class _IDBoxState extends State<IDBox> with SingleTickerProviderStateMixin {
+  bool _isExpanded = false;
+  late int _selectedIndex;
+  late AnimationController _controller;
+  late Animation<double> _animation; 
+  
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialSelectedIndex;
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 700),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _animation = Tween<double>(begin: 0.3, end: 1.0).animate(_controller);
+  }
+
+  void _toggleExpanded() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+  }
+
+  _selectOption(int index) {
+    setState(() {
+      _selectedIndex = index;
+      _isExpanded = false;
+    });
+    widget.onMatchSelected(index);
+  }
+
+  @override
+  void didUpdateWidget(covariant IDBox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.loading) {
+      _controller.forward();
+    } else {
+      _controller.stop();
+      _controller.value = 1;
+    }
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.loading ? null: _toggleExpanded,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.all(10.0),
+        decoration: BoxDecoration(
+          color: Colors.lightGreen[50],
+          border: Border.all(color: Colors.black, width: 1.0),
+          borderRadius: BorderRadius.circular(10.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: widget.loading
+                    ? FadeTransition(
+                      opacity: _animation,
+                      child: RichText(text: widget.loadingText)
+                    )
+                    : widget.matches[_selectedIndex]
+                  ),
+                if (!widget.loading)
+                  Icon(
+                    _isExpanded ? Icons.expand_less : Icons.expand_more,
+                  ),
+              ],
+            ),
+            if (!widget.loading && _isExpanded) ...[
+              const SizedBox(height: 8),
+              const Divider(),
+              ... widget.matches.asMap().entries.map((entry) {
+                final index = entry.key;
+                final match = entry.value;
+                if (index == _selectedIndex) return const SizedBox.shrink();
+
+                return InkWell(
+                  onTap: () => _selectOption(index),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10.0),
+                    child: match,
+                  ),
+                );
+              }),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+class DetailBox extends StatefulWidget {
+  final bool loading;
+  final TextSpan resultText;
+
+  const DetailBox({
     super.key,
     required this.loading,
     required this.resultText,
   });
 
-  final bool loading;
-  final TextSpan resultText;
-
   @override
-  State<ResultsBox> createState() => _ResultsBoxState();
+  State<DetailBox> createState() => _DetailBoxState();
 }
 
-class _ResultsBoxState extends State<ResultsBox> with SingleTickerProviderStateMixin {
+class _DetailBoxState extends State<DetailBox> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation; 
   
@@ -510,7 +677,7 @@ class _ResultsBoxState extends State<ResultsBox> with SingleTickerProviderStateM
   }
 
   @override
-  void didUpdateWidget(covariant ResultsBox oldWidget) {
+  void didUpdateWidget(covariant DetailBox oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.loading) {
       _controller.forward();

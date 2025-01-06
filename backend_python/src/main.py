@@ -1,7 +1,8 @@
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
 
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import uuid
@@ -23,7 +24,9 @@ logging.basicConfig(
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 PROJECT = "all"
-api_endpoint = f"https://my-api.plantnet.org/v2/identify/{PROJECT}?api-key={API_KEY}"
+NUM_RESULTS = "&nb-results=3"
+SIMSEARCH = "&include-related-images=true"
+api_endpoint = f"https://my-api.plantnet.org/v2/identify/{PROJECT}?api-key={API_KEY}{NUM_RESULTS}"
 
 
 # Create FastAPI instance
@@ -60,16 +63,16 @@ async def identify_image(
         
         try:
             # Identify plant using PlantNet API
-            genus, score, commonNames = plantnet_identification(file_location, organ)
+            matches = plantnet_identification(file_location, organ)
             
             # Optional: Remove the file after processing if you don't need to keep it
             os.remove(file_location)
             
-            return {
-                "genus": genus,
-                "score": score,
-                "commonNames": commonNames,
-            }
+            data = {
+                "matches": matches,
+                }
+
+            return JSONResponse(content=data)
         
         except Exception as processing_error:
             # If processing fails, keep the file for debugging
@@ -99,23 +102,23 @@ def plantnet_identification(image_path, organ):
     json_result = json.loads(response.text) # is this necessary?
     results = json_result['results']
 
-    logging.info(response.status_code)
-    logging.info(results[0])
+    matches = {}
 
-    genus = results[0]['species']['genus']['scientificNameWithoutAuthor']
-    score = results[0]['score']
-    commonNames = results[0]['species']['commonNames']
+    for i in range(len(results)):
+        genus = results[i]['species']['genus']['scientificNameWithoutAuthor']
+        score = results[i]['score']
+        commonNames = results[i]['species']['commonNames']
+        
+        matches[i] = {'genus': genus,
+                      'score': score,
+                      'commonNames': commonNames}
+    
+    logging.info(matches)
 
-    return genus, score, commonNames
+    return matches
 
 
 if __name__ == "__main__":
     # Run the server
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
-
-# Scrape RHS
-# rhs_url = f"https://www.rhs.org.uk/plants/{genus}"?
-# driver = webdriver.Chrome()
-# driver.maximize_window()
-# driver.get(rhs_url)
