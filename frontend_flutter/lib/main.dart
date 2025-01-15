@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 void main() async {
+  // Load environment variables for backend URL
   await dotenv.load();
   Config.setEnvironment(Environment.physical);
   runApp(const MyApp());
@@ -52,23 +53,17 @@ class HomePageState extends State<HomePage> {
   bool _idLoading = true;
   bool _detailLoading = true;
 
-  // Widget key/height mapping
-  Map<GlobalKey, double?> resultBoxHeights = {};
-  GlobalKey idResultBox = GlobalKey();
-  GlobalKey detailResultBox = GlobalKey();
-
   // Image to upload to backend
   File? _image;
   final picker = ImagePicker();
-  
-  // Text to display
-  TextSpan _detailResult = const TextSpan(text: "Finding details...",
-                                          style: TextStyle(color: Colors.black)
-                                          );
 
-  // Matches to display
+  // Matches to display and selected match
   List<IDMatch> matchOptions = [];
+  int selectedMatchIndex = 0;
 
+  // Detail result to display
+  PlantDetails? plantDetails;
+  
   // Function to take a photo using the device camera
   Future<void> _takePhoto() async {
     try {
@@ -142,10 +137,11 @@ class HomePageState extends State<HomePage> {
 
     setState(() {
       _isSubmitted = true;
+      _idLoading = true;
     });
     
     try {
-      String url = '$apiUrl/identify-image/';
+      String url = '$apiUrl/api/v1/identify-plant/';
       var uri = Uri.parse(url);
       
       // Create multipart request
@@ -193,10 +189,8 @@ class HomePageState extends State<HomePage> {
           matchOptions = matchOptionsList;
         });
 
-        // Once rendered, measure height of idResultBox to position detailResultBox
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _measureHeight(idResultBox);
-        });
+        // Call _getDetails function
+        _getDetails();
 
       } else {
         setState(() {
@@ -213,20 +207,69 @@ class HomePageState extends State<HomePage> {
         _isSubmitted = false;
       });
       
+      debugPrint('$e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error uploading image: $e')),
       );
     }
   }
+  
+  // Function to update selected index
+  void onMatchSelected(int index) {
+    setState(() {
+      selectedMatchIndex = index;
+    });
+    _getDetails();
+  }
+  
+  // Function to get details of plant from backend
+  Future<void> _getDetails() async {
+    setState(() {
+      _detailLoading = true;
+    });
 
-  // Function to measure ResultBox height
-  void _measureHeight(GlobalKey key) {
-    final RenderBox? renderBox = key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null) {
-      final h = renderBox.size.height;
-      setState(() {
-        resultBoxHeights[key] = h;
-      });
+    try {
+      String url = '$apiUrl/api/v1/plant-details/';
+      var uri = Uri.parse(url);
+      
+      String plant = matchOptions[selectedMatchIndex].genus;
+
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'plant': plant})
+      );
+
+      // Check widget still mounted
+      if (!mounted) return;
+      
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        final responseDetail = jsonResponse["details"];
+        
+        setState(() {
+          _detailLoading = false;
+          plantDetails = PlantDetails(
+            exposure: responseDetail["exposure"],
+            soilType: responseDetail["soilType"],
+            hardiness: responseDetail["hardiness"],
+            lifeCycle: responseDetail["lifeCycle"],
+            plantSize: responseDetail["plantSize"],
+          );
+        });
+
+      } else {
+        debugPrint('${response.statusCode}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error received from backend: ${response.statusCode}'))
+        );
+      }
+
+    } catch (e) {
+      debugPrint('$e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error retrieving details: $e'),)
+      );
     }
   }
   
@@ -238,9 +281,9 @@ class HomePageState extends State<HomePage> {
       _imageMoved = false;
       _idLoading = true;
       _detailLoading = true;
-      _detailResult = const TextSpan(
-        text: "Finding details...",
-        style: TextStyle(color: Colors.black));
+      matchOptions = [];
+      selectedMatchIndex = 0;
+      plantDetails = null;
     });
   }
 
@@ -252,6 +295,7 @@ class HomePageState extends State<HomePage> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
+      // Background image
       body: Container(
         decoration: BoxDecoration(
           image: DecorationImage(
@@ -263,11 +307,13 @@ class HomePageState extends State<HomePage> {
             ),
           ),
         ),
+        // Page content
         child: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Stack(
             alignment: Alignment.center,
             children: [             
+               // Display image if selected, otherwise display title
                _image != null
                 ? AnimatedPositioned(
                     duration: const Duration(milliseconds: 500),
@@ -386,7 +432,7 @@ class HomePageState extends State<HomePage> {
 
                       const SizedBox(height: 100),
           
-                      // Button to upload photo
+                      // 'Submit' button to upload photo
                       ElevatedButton(
                         onPressed: _uploadImage,
                         style: ElevatedButton.styleFrom(
@@ -401,45 +447,44 @@ class HomePageState extends State<HomePage> {
                ),
                 
 
-              // Display identification results
-              if (_isSubmitted && _imageMoved)
+              // Display results after submission
+              if (_isSubmitted)
                 Positioned(
                   top: 270,
                   left: 0,
                   right: 0,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                    child: IDBox(
-                      key: idResultBox,
-                      loading: _idLoading,
-                      loadingText: const TextSpan(text: 'Identifying with PlantNet...',
+                    child: Column(
+                      children: [
+                        // Display IDBox when submit animation complete
+                        if (_imageMoved)
+                          IDBox(
+                            loading: _idLoading,
+                            loadingText: const TextSpan(text: 'Identifying with PlantNet...',
                                                   style: TextStyle(color: Colors.black)
                                                   ),
-                      matches: matchOptions,
-                      onMatchSelected: (index) {
-                        debugPrint('Selected match: $index');
-                      },
-                      ),
+                            matches: matchOptions,
+                            onMatchSelected: onMatchSelected,
+                          ),
+                        
+                        // Display DetailBox when IDBox finishes loading
+                        if (!_idLoading) ...[
+                          const SizedBox(height: 10),
+                          DetailBox(
+                            loading: _detailLoading,
+                            loadingText: const TextSpan(text: "Finding details...",
+                                          style: TextStyle(color: Colors.black)
+                                          ),
+                            plantDetails: plantDetails,
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
 
-              // Display detail results
-              // if (_isSubmitted && !_idLoading)
-              //   Positioned(
-              //     top: 270 + (resultBoxHeights[idResultBox] ?? 0) + 10,
-              //     left: 0,
-              //     right: 0,
-              //     child: Padding(
-              //       padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              //       child: DetailBox(
-              //         key: detailResultBox,
-              //         loading: _detailLoading,
-              //         resultText: _detailResult, 
-              //       ),
-              //     ),
-              //   ),
-
-              
+                            
               // Positioned reset button
               Positioned(
                 bottom: 16.0,
@@ -517,7 +562,7 @@ class IDBox extends StatefulWidget {
   final TextSpan loadingText;
   final List<IDMatch> matches;
   final int initialSelectedIndex;
-  final Function(int) onMatchSelected; 
+  final Function(int) onMatchSelected;
 
   const IDBox({
     super.key,
@@ -536,7 +581,7 @@ class _IDBoxState extends State<IDBox> with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
   late int _selectedIndex;
   late AnimationController _controller;
-  late Animation<double> _animation; 
+  late Animation<double> _animation;
   
 
   @override
@@ -569,7 +614,9 @@ class _IDBoxState extends State<IDBox> with SingleTickerProviderStateMixin {
   void didUpdateWidget(covariant IDBox oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.loading) {
-      _controller.forward();
+      if (!_controller.isAnimating) {
+        _controller.repeat(reverse: true);
+      }
     } else {
       _controller.stop();
       _controller.value = 1;
@@ -647,14 +694,64 @@ class _IDBoxState extends State<IDBox> with SingleTickerProviderStateMixin {
 }
 
 
+class PlantDetails extends StatelessWidget {
+  final String exposure;
+  final String soilType;
+  final String hardiness;
+  final String lifeCycle;
+  final String plantSize;
+
+  const PlantDetails({
+    super.key,
+    required this.exposure,
+    required this.soilType,
+    required this.hardiness,
+    required this.lifeCycle,
+    required this.plantSize,
+  });
+
+@override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        style: const TextStyle(color: Colors.black, height: 1.5),
+        children: <TextSpan>[
+          const TextSpan(
+            text: 'Exposure: ',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+          TextSpan(text: exposure),
+          const TextSpan(
+            text: '\nSoil Type: ',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+          TextSpan(text: soilType),
+          const TextSpan(
+            text: '\nHardiness: ',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+          TextSpan(text: hardiness),
+          const TextSpan(
+            text: '\nLife Cycle: ',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+          TextSpan(text: lifeCycle),
+          const TextSpan(
+            text: '\nPlant Size: ',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+          TextSpan(text: plantSize),
+        ],
+      ),
+    );
+  }
+}
+
 class DetailBox extends StatefulWidget {
   final bool loading;
-  final TextSpan resultText;
+  final TextSpan loadingText;
+  final PlantDetails? plantDetails;
 
   const DetailBox({
     super.key,
     required this.loading,
-    required this.resultText,
+    required this.loadingText,
+    required this.plantDetails,
   });
 
   @override
@@ -680,7 +777,9 @@ class _DetailBoxState extends State<DetailBox> with SingleTickerProviderStateMix
   void didUpdateWidget(covariant DetailBox oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.loading) {
-      _controller.forward();
+      if (!_controller.isAnimating) {
+        _controller.repeat(reverse: true);
+      }
     } else {
       _controller.stop();
       _controller.value = 1;
@@ -702,11 +801,18 @@ class _DetailBoxState extends State<DetailBox> with SingleTickerProviderStateMix
         border: Border.all(color: Colors.black, width: 1.0),
         borderRadius: BorderRadius.circular(10.0),
       ),
-      child: FadeTransition(
-        opacity: _animation,
-        child: RichText(
-          text: widget.resultText,
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [widget.loading
+          ? FadeTransition(
+            opacity: _animation,
+            child: RichText(
+              text: widget.loadingText,
+            ),
+          )
+          : widget.plantDetails ?? const SizedBox.shrink(),
+        ],
       ),
     );
   }
