@@ -28,8 +28,10 @@ class PlantIdentificationService:
             logging.error("Failed to parse JSON response.")
             return {}
 
+        # logging.info(f"{response_data}")
         matches = {
             i: {
+                'species': result['species']['scientificNameWithoutAuthor'],
                 'genus': result['species']['genus']['scientificNameWithoutAuthor'],
                 'score': result['score'],
                 'commonNames': result['species']['commonNames']

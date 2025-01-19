@@ -43,6 +43,7 @@ class HomePage extends StatefulWidget {
 enum Organ {flower, leaf, fruit, bark, auto,}
 Organ selectedOrgan = Organ.flower;
 
+
 class HomePageState extends State<HomePage> {
   // Access apiUrl from config
   String apiUrl = Config.apiUrl;
@@ -126,7 +127,7 @@ class HomePageState extends State<HomePage> {
     }
   }
   
-  // Function to upload the image to the backend
+  // Function to upload the image to the backend and display results (matches)
   Future<void> _uploadImage() async {
     if (_image == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -170,12 +171,14 @@ class HomePageState extends State<HomePage> {
       // Check the response - further error-handling required here?
       if (response.statusCode == 200) {
         var jsonResponse = json.decode(responseBody);
+        debugPrint('$jsonResponse');
 
         List <IDMatch> matchOptionsList = [];
         jsonResponse['matches'].forEach((key, value) {
           String commonNamesString = (value['commonNames'] as List<dynamic>).join(', ');
           matchOptionsList.add(
             IDMatch(
+              species: value['species'],
               genus: value['genus'],
               score: value['score'],
               commonNames: commonNamesString,
@@ -214,7 +217,7 @@ class HomePageState extends State<HomePage> {
     }
   }
   
-  // Function to update selected index
+  // Function to update selected match index
   void onMatchSelected(int index) {
     setState(() {
       selectedMatchIndex = index;
@@ -222,7 +225,7 @@ class HomePageState extends State<HomePage> {
     _getDetails();
   }
   
-  // Function to get details of plant from backend
+  // Function to retrieve and display details of plant from backend
   Future<void> _getDetails() async {
     setState(() {
       _detailLoading = true;
@@ -232,7 +235,7 @@ class HomePageState extends State<HomePage> {
       String url = '$apiUrl/api/v1/plant-details/';
       var uri = Uri.parse(url);
       
-      String plant = matchOptions[selectedMatchIndex].genus;
+      String plant = matchOptions[selectedMatchIndex].species;
 
       final response = await http.post(
         uri,
@@ -520,12 +523,14 @@ class HomePageState extends State<HomePage> {
 
 
 class IDMatch extends StatelessWidget {
+  final String species;
   final String genus;
   final double score;
   final String commonNames;
 
   const IDMatch({
     super.key,
+    required this.species,
     required this.genus,
     required this.score,
     required this.commonNames,
@@ -538,13 +543,18 @@ class IDMatch extends StatelessWidget {
         style: const TextStyle(color: Colors.black, height: 1.5),
         children: <TextSpan>[
           const TextSpan(
-            text: 'Genus: ',
+            text: 'Species: ',
             style: TextStyle(fontWeight: FontWeight.bold)),
-          TextSpan(text: genus),
+          TextSpan(text: species),
           TextSpan(
             text: ' (${(score*100).toStringAsFixed(2)}% probability)',
             style: const TextStyle(fontStyle: FontStyle.italic),
           ),
+          const TextSpan(
+            text: '\nGenus: ',
+            style: TextStyle(fontWeight: FontWeight.bold)
+          ),
+          TextSpan(text: genus),
           const TextSpan(
             text: '\nCommon Names: ',
             style: TextStyle(fontWeight: FontWeight.bold)
