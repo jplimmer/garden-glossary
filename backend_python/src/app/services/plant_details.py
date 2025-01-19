@@ -5,7 +5,7 @@ class PlantDetailsService:
     async def retrieve_plant_details(plant: str) -> dict:
         await asyncio.sleep(3)
         
-        plant_details ={'plant': plant, 
+        plant_details = {'plant': plant,
                          'exposure': 'exposure details',
                          'soilType': 'soil type details',
                          'hardiness': 'hardiness score',
