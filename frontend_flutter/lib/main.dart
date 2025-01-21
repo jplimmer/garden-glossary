@@ -179,7 +179,6 @@ class HomePageState extends State<HomePage> {
           matchOptionsList.add(
             IDMatch(
               species: value['species'],
-              genus: value['genus'],
               score: value['score'],
               commonNames: commonNamesString,
             )
@@ -247,18 +246,13 @@ class HomePageState extends State<HomePage> {
       if (!mounted) return;
       
       if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        final responseDetail = jsonResponse["details"];
+        // final jsonResponse = jsonDecode(response.body);
+        final jsonResponse = json.decode(utf8.decode(response.bodyBytes));
+        debugPrint('JSON: $jsonResponse');
         
         setState(() {
           _detailLoading = false;
-          plantDetails = PlantDetails(
-            exposure: responseDetail["exposure"],
-            soilType: responseDetail["soilType"],
-            hardiness: responseDetail["hardiness"],
-            lifeCycle: responseDetail["lifeCycle"],
-            plantSize: responseDetail["plantSize"],
-          );
+          plantDetails = PlantDetails.fromJson(jsonResponse);
         });
 
       } else {
@@ -479,7 +473,9 @@ class HomePageState extends State<HomePage> {
                             loadingText: const TextSpan(text: "Finding details...",
                                           style: TextStyle(color: Colors.black)
                                           ),
-                            plantDetails: plantDetails,
+                           detailDisplay: plantDetails != null
+                            ? PlantDetailsWidget(details: plantDetails!)
+                            : const SizedBox.shrink(),
                           ),
                         ],
                       ],
@@ -524,14 +520,12 @@ class HomePageState extends State<HomePage> {
 
 class IDMatch extends StatelessWidget {
   final String species;
-  final String genus;
   final double score;
   final String commonNames;
 
   const IDMatch({
     super.key,
     required this.species,
-    required this.genus,
     required this.score,
     required this.commonNames,
   });
@@ -550,11 +544,6 @@ class IDMatch extends StatelessWidget {
             text: ' (${(score*100).toStringAsFixed(2)}% probability)',
             style: const TextStyle(fontStyle: FontStyle.italic),
           ),
-          const TextSpan(
-            text: '\nGenus: ',
-            style: TextStyle(fontWeight: FontWeight.bold)
-          ),
-          TextSpan(text: genus),
           const TextSpan(
             text: '\nCommon Names: ',
             style: TextStyle(fontWeight: FontWeight.bold)
@@ -704,20 +693,96 @@ class _IDBoxState extends State<IDBox> with SingleTickerProviderStateMixin {
 }
 
 
-class PlantDetails extends StatelessWidget {
-  final String exposure;
-  final String soilType;
-  final String hardiness;
-  final String lifeCycle;
-  final String plantSize;
+class PlantSize {
+  final String height;
+  final String spread;
 
-  const PlantDetails({
-    super.key,
+  PlantSize({required this.height, required this.spread});
+
+  factory PlantSize.fromJson(Map<String, dynamic> json) {
+    return PlantSize(
+      height: json['height'] as String,
+      spread: json['spread'] as String,
+    );
+  }
+}
+
+class Soil {
+  final List<String> types;
+  final List<String> moisture;
+  final List<String> phLevels;
+
+  Soil({
+    required this.types,
+    required this.moisture,
+    required this.phLevels,
+  });
+
+  factory Soil.fromJson(Map<String, dynamic> json) {
+    return Soil(
+      types: List<String>.from(json['types']),
+      moisture: List<String>.from(json['moisture']),
+      phLevels: List<String>.from(json['ph_levels']),
+    );
+  }
+}
+
+class Position {
+  final String sun;
+  final String aspect;
+  final String exposure;
+
+  Position({
+    required this.sun,
+    required this.aspect,
     required this.exposure,
-    required this.soilType,
+  });
+
+  factory Position.fromJson(Map<String, dynamic> json) {
+    return Position(
+      sun: json['sun'] as String,
+      aspect: json['aspect'] as String,
+      exposure: json['exposure'] as String,
+    );
+  }
+}
+
+class PlantDetails {
+  final PlantSize size;
+  final String hardiness;
+  final Soil soil;
+  final Position position;
+  final String cultivationTips;
+  final String pruning;
+
+  PlantDetails({
+    required this.size,
     required this.hardiness,
-    required this.lifeCycle,
-    required this.plantSize,
+    required this.soil,
+    required this.position,
+    required this.cultivationTips,
+    required this.pruning,
+  });
+
+  factory PlantDetails.fromJson(Map<String, dynamic> json) {
+    final details = json['details'];
+    return PlantDetails(
+      size: PlantSize.fromJson(details['size']),
+      hardiness: details['hardiness'] as String,
+      soil: Soil.fromJson(details['soil']),
+      position: Position.fromJson(details['position']),
+      cultivationTips: details['cultivation_tips'] as String,
+      pruning: details['pruning'] as String,
+    );
+  }
+}
+
+class PlantDetailsWidget extends StatelessWidget {
+  final PlantDetails details;
+  
+  const PlantDetailsWidget({
+    super.key,
+    required this.details,
   });
 
 @override
@@ -726,26 +791,46 @@ class PlantDetails extends StatelessWidget {
       TextSpan(
         style: const TextStyle(color: Colors.black, height: 1.5),
         children: <TextSpan>[
+          // Cultivation tips + pruning
+          TextSpan(text: '${details.cultivationTips}.\n'),
+          TextSpan(text: '${details.pruning}.\n'),
+          
+          // Size
           const TextSpan(
-            text: 'Exposure: ',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-          TextSpan(text: exposure),
+            text: '\nPlant Size:\n',
+            style: TextStyle(fontWeight: FontWeight.bold)
+          ),
+          TextSpan(text: 'Height: ${details.size.height}\n'),
+          TextSpan(text: 'Spread: ${details.size.spread}\n'),
+          
+          // Growing conditions
           const TextSpan(
-            text: '\nSoil Type: ',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-          TextSpan(text: soilType),
+            text: '\nGrowing conditions:\n',
+            style: TextStyle(fontWeight: FontWeight.bold)
+          ),
+          TextSpan(
+            text: 'Soil type(s): ${details.soil.types.join(", ")}\n'
+            'Moisture: ${details.soil.moisture.join(", ")}\n'
+            'pH levels: ${details.soil.phLevels.join(", ")}\n'
+          ),
+          
+          // Position
+          const TextSpan(
+            text: '\nPosition:\n',
+            style: TextStyle(fontWeight: FontWeight.bold)
+          ),
+          TextSpan(
+            text: 'Sunlight: ${details.position.sun}\n'
+            'Aspect: ${details.position.aspect}\n'
+            'Exposure: ${details.position.exposure}\n'
+          ),
+          
+          // Hardiness
           const TextSpan(
             text: '\nHardiness: ',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-          TextSpan(text: hardiness),
-          const TextSpan(
-            text: '\nLife Cycle: ',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-          TextSpan(text: lifeCycle),
-          const TextSpan(
-            text: '\nPlant Size: ',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-          TextSpan(text: plantSize),
+            style: TextStyle(fontWeight: FontWeight.bold)
+          ),
+          TextSpan(text: '${details.hardiness}\n'),
         ],
       ),
     );
@@ -755,13 +840,13 @@ class PlantDetails extends StatelessWidget {
 class DetailBox extends StatefulWidget {
   final bool loading;
   final TextSpan loadingText;
-  final PlantDetails? plantDetails;
+  final Widget detailDisplay;
 
   const DetailBox({
     super.key,
     required this.loading,
     required this.loadingText,
-    required this.plantDetails,
+    required this.detailDisplay,
   });
 
   @override
@@ -821,7 +906,7 @@ class _DetailBoxState extends State<DetailBox> with SingleTickerProviderStateMix
               text: widget.loadingText,
             ),
           )
-          : widget.plantDetails ?? const SizedBox.shrink(),
+          : widget.detailDisplay,
         ],
       ),
     );
