@@ -10,9 +10,6 @@ from selenium.common.exceptions import TimeoutException, ElementNotInteractableE
 from bs4 import BeautifulSoup
 from contextlib import contextmanager
 import logging
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -285,7 +282,7 @@ class PlantScraper:
         )
 
 
-class PlantDetailsService:
+class PlantDetailsRhsService:
     @staticmethod
     async def retrieve_plant_details(plant: str) -> dict:
         try:

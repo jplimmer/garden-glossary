@@ -1,10 +1,14 @@
 import 'dart:io';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:garden_glossary/config/environment.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http; 
+import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 
 void main() async {
@@ -40,19 +44,21 @@ class HomePage extends StatefulWidget {
 }
 
 // Organ options
-enum Organ {flower, leaf, fruit, bark, auto,}
-Organ selectedOrgan = Organ.flower;
-
+enum Organ {leaf, flower, fruit, bark, auto,}
 
 class HomePageState extends State<HomePage> {
   // Access apiUrl from config
   String apiUrl = Config.apiUrl;
+
+  // Cancel token for cancelling requests
+  CancelToken? _cancelToken;
   
   // State variables to control animations
   bool _isSubmitted = false;
   bool _imageMoved = false;
   bool _idLoading = true;
   bool _detailLoading = true;
+  Organ selectedOrgan = Organ.flower;
 
   // Image to upload to backend
   File? _image;
@@ -231,7 +237,7 @@ class HomePageState extends State<HomePage> {
     });
 
     try {
-      String url = '$apiUrl/api/v1/plant-details/';
+      String url = '$apiUrl/api/v1/plant-details-rhs/';
       var uri = Uri.parse(url);
       
       String plant = matchOptions[selectedMatchIndex].species;
@@ -284,238 +290,273 @@ class HomePageState extends State<HomePage> {
     });
   }
 
-
-  @override
-  Widget build(BuildContext context) {
+    @override
+    Widget build(BuildContext context) {
     var theme = Theme.of(context);
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenSize = MediaQuery.of(context).size;
+    final imageSmallHeight = screenSize.width * 0.4;
 
     return Scaffold(
-      // Background image
-      body: Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: const AssetImage('assets/images/background.jpg'),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(
-              Colors.black.withOpacity(0.5),
-              BlendMode.dstATop,
-            ),
-          ),
-        ),
-        // Page content
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [             
-               // Display image if selected, otherwise display title
-               _image != null
-                ? AnimatedPositioned(
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeInOut,
-                    top: _isSubmitted ? 52 : screenHeight / 2 - 300,
-                    left: screenWidth / 2 - (_isSubmitted ? 100 : 150),
-                    child:
-                        AnimatedContainer(
-                            duration: const Duration(milliseconds: 500),
-                            curve: Curves.easeInOut,
-                            height: _isSubmitted ? 200 : 300,
-                            width: _isSubmitted ? 200 : 300,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 4.0,
-                              ),
-                            ),
-                            onEnd: () {
-                              setState(() {
-                                _imageMoved = true;
-                              });
-                            },
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Image.file(
-                                _image!,
-                                height: 300,
-                                width: 300,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                  )
-                           
-                : Positioned(
-                    bottom: screenHeight / 2 + 5,
-                    left: 0,
-                    right: 0,
-                    child: const FractionallySizedBox(
-                        alignment: Alignment.center,
-                        widthFactor: 0.9,
-                        child: Text(
-                          'Garden Glossary',
-                          style: TextStyle(
-                            fontSize: 50,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                          softWrap: true,
-                          overflow: TextOverflow.visible,
-                        ),
-                      ),
-                  ), 
-
-
-              // Display buttons before submission
-              if (!_isSubmitted)
-                Positioned(
-                  top: screenHeight / 2 + 5, 
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [                 
+      body: Stack(
+        children: [
+          _buildBackground(),
+          SafeArea(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: screenSize.width * 0.02,
+                right: screenSize.width * 0.02,
+                top: screenSize.height * 0.02,
+              ),
+              child: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: screenSize.height - MediaQuery.of(context).padding.top,
+                  ),
+                  child: Stack(
+                    children: [
+                      _buildImageorTitleContainer(theme, screenSize, imageSmallHeight),
                       const SizedBox(height: 20),
-          
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Button to take a photo
-                          ElevatedButton(
-                            onPressed: _takePhoto,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      if (_imageMoved)
+                        Align(
+                          alignment: Alignment.topCenter,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              top: (imageSmallHeight) + 20,
                             ),
-                            child: const Text('Camera'),
+                            child: _buildResults(screenSize),
                           ),
-                          
-                          const SizedBox(width: 20),
-          
-                          // Button to upload photo
-                          ElevatedButton(
-                            onPressed: _galleryPicker,
-                            child: const Text('Gallery'),
-                          ),
-                        ],
-                      ),
-          
-                      const SizedBox(height: 20),
-          
-                      // Selector for organ
-                      Row(
-                        children: [
-                          const Text(
-                            "Organ:",
-                            style: TextStyle(
-                              fontSize: 20,
-                            )),
-                          SizedBox(
-                            width: 120,
-                            child: CupertinoPicker(
-                              itemExtent: 28.0,
-                              onSelectedItemChanged: (int index) {
-                                setState(() {
-                                  selectedOrgan = Organ.values[index];
-                                });
-                              },
-                              children: Organ.values.map((organ) {
-                                return Center(child: Text(organ.toString().split('.').last));
-                              }).toList(),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 100),
-          
-                      // 'Submit' button to upload photo
-                      ElevatedButton(
-                        onPressed: _uploadImage,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.primary,
-                          foregroundColor: theme.colorScheme.onPrimary,
-                          minimumSize: const Size(200, 40),
+                        )
+                      else if (!_isSubmitted)
+                        Align(
+                          alignment: const Alignment(0.0, 0.4),
+                          child: _buildInputSection(theme, screenSize),
                         ),
-                        child: const Text('Submit'),
-                      ),
                     ],
                   ),
-               ),
-                
-
-              // Display results after submission
-              if (_isSubmitted)
-                Positioned(
-                  top: 270,
-                  left: 0,
-                  right: 0,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                    child: Column(
-                      children: [
-                        // Display IDBox when submit animation complete
-                        if (_imageMoved)
-                          IDBox(
-                            loading: _idLoading,
-                            loadingText: const TextSpan(text: 'Identifying with PlantNet...',
-                                                  style: TextStyle(color: Colors.black)
-                                                  ),
-                            matches: matchOptions,
-                            onMatchSelected: onMatchSelected,
-                          ),
-                        
-                        // Display DetailBox when IDBox finishes loading
-                        if (!_idLoading) ...[
-                          const SizedBox(height: 10),
-                          DetailBox(
-                            loading: _detailLoading,
-                            loadingText: const TextSpan(text: "Finding details...",
-                                          style: TextStyle(color: Colors.black)
-                                          ),
-                           detailDisplay: plantDetails != null
-                            ? PlantDetailsWidget(details: plantDetails!)
-                            : const SizedBox.shrink(),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-
-                            
-              // Positioned reset button
-              Positioned(
-                bottom: 16.0,
-                left: 16.0,
-                child: FloatingActionButton(
-                  onPressed: _reset,
-                  backgroundColor: theme.colorScheme.onPrimary,
-                  foregroundColor: theme.colorScheme.primary, 
-                  mini: true, // Makes the button smaller
-                  child: const Icon(Icons.refresh), 
                 ),
               ),
+            ),
+          ),
 
-              // Positioned settings button
-              Positioned(
-                bottom: 16.0,
-                right: 16.0,
-                child: FloatingActionButton(
-                  onPressed: null,
-                  backgroundColor: theme.colorScheme.onPrimary,
-                  foregroundColor: theme.colorScheme.primary, 
-                  mini: true, // Makes the button smaller
-                  child: const Icon(Icons.settings), 
-                ),
-              ),
-            ],
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _buildActionButtons(theme),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildBackground() {
+    return Container(
+      decoration: BoxDecoration(
+        image: DecorationImage(
+          image: const AssetImage('assets/images/background.jpg'),
+          fit: BoxFit.cover,
+          colorFilter: ColorFilter.mode(
+            Colors.black.withValues(alpha: 0.5),
+            BlendMode.dstATop
           ),
         ),
       ),
     );
   }
-}
+  
+  Widget _buildImageorTitleContainer(ThemeData theme, Size screenSize, double imageSmallHeight) {
+    return AnimatedAlign(
+      alignment: _isSubmitted
+        ? Alignment.topCenter
+        : const Alignment(0.0, -0.5),
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+      onEnd: () => setState(() => _imageMoved = _isSubmitted),
+      child: _image != null
+        ? _buildImageContainer(imageSmallHeight)
+        : _buildTitle(theme, screenSize),
+    );
+  }
+  
+  Widget _buildImageContainer(double imageSmallHeight) {
+    final imageSize = _isSubmitted ? imageSmallHeight : imageSmallHeight * 1.5;
+    
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+      width: imageSize,
+      height: imageSize,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white, width: 4),
+      ),
+      onEnd: () => setState(() => _imageMoved = true),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.file(_image!, fit: BoxFit.cover),
+      ),
+    );
+  }
+
+  Widget _buildTitle(ThemeData theme, Size screenSize) {
+    return SizedBox(
+      width: screenSize.width * 0.7,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          'Garden\nGlossary',
+          style: GoogleFonts.cormorant(
+            color: theme.colorScheme.primary,
+            fontSize: 70,
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputSection(ThemeData theme, Size screenSize) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: screenSize.height * 0.3) ,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Spacer(flex: 1),
+          _buildImageButtons(),
+          const Spacer(flex: 1),
+          _buildOrganPicker(),
+          const Spacer(flex: 5),
+          _buildSubmitButton(theme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImageButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        ElevatedButton(
+          onPressed: _takePhoto,
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10)
+          ),
+          child: const Text('Camera'),
+        ),
+        const SizedBox(width: 20),
+        ElevatedButton(
+          onPressed: _galleryPicker,
+          child: const Text('Gallery'),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildOrganPicker() {
+    final FixedExtentScrollController scrollController = FixedExtentScrollController(initialItem: 1);
+    
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Text(
+          'Organ:',
+          style: TextStyle(fontSize: 18),
+        ),
+        SizedBox(
+          width: 110,
+          height: 80,
+          child: CupertinoPicker(
+            scrollController: scrollController,
+            itemExtent: 28.0,
+            onSelectedItemChanged: (int index) {
+              setState(() {
+                selectedOrgan = Organ.values[index];
+              });
+            },
+            children: Organ.values.map((organ) {
+              return Center(child: Text(organ.toString().split('.').last));
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildSubmitButton(ThemeData theme) {
+    return ElevatedButton(
+      onPressed: _uploadImage,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: theme.colorScheme.onPrimary,
+        minimumSize: const Size(200, 40),
+      ),
+      child: const Text('Submit'),
+    );
+  }
+
+  Widget _buildResults(Size screenSize) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 15.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (_imageMoved)
+            IDBox(
+              loading: _idLoading,
+              loadingText: const TextSpan(
+                text: 'Identifying with PlantNet...',
+                style: TextStyle(color: Colors.black),
+              ),
+              matches: matchOptions,
+              onMatchSelected: onMatchSelected
+            ),
+          if (!_idLoading) ...[
+            const SizedBox(height: 10),
+            DetailBox(
+              loading: _detailLoading,
+              loadingText: const TextSpan(
+                text: 'Finding details...',
+                style: TextStyle(color: Colors.black),
+              ),
+              detailDisplay: plantDetails != null
+                ? PlantDetailsWidget(details: plantDetails!)
+                : const SizedBox.shrink(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildActionButtons(ThemeData theme) {
+    return Container(
+      color: Colors.transparent,
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          FloatingActionButton(
+            onPressed: _reset,
+            backgroundColor: theme.colorScheme.onPrimary,
+            foregroundColor: theme.colorScheme.primary,
+            mini: true,
+            child: const Icon(Icons.refresh),
+          ),
+          FloatingActionButton(
+            onPressed: null,
+            backgroundColor: theme.colorScheme.onPrimary,
+            foregroundColor: theme.colorScheme.primary,
+            mini: true,
+            child: const Icon(Icons.settings),
+          ),
+        ],
+      ),
+    );
+  }
+
+} // HomePageState
 
 
 class IDMatch extends StatelessWidget {
@@ -554,144 +595,6 @@ class IDMatch extends StatelessWidget {
     );
   }
 }
-
-
-class IDBox extends StatefulWidget {
-  final bool loading;
-  final TextSpan loadingText;
-  final List<IDMatch> matches;
-  final int initialSelectedIndex;
-  final Function(int) onMatchSelected;
-
-  const IDBox({
-    super.key,
-    required this.loading,
-    required this.loadingText,
-    required this.matches,
-    required this.onMatchSelected,
-    this.initialSelectedIndex = 0,
-  });
-
-  @override
-  State<IDBox> createState() => _IDBoxState();
-}
-
-class _IDBoxState extends State<IDBox> with SingleTickerProviderStateMixin {
-  bool _isExpanded = false;
-  late int _selectedIndex;
-  late AnimationController _controller;
-  late Animation<double> _animation;
-  
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedIndex = widget.initialSelectedIndex;
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 700),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    _animation = Tween<double>(begin: 0.3, end: 1.0).animate(_controller);
-  }
-
-  void _toggleExpanded() {
-    setState(() {
-      _isExpanded = !_isExpanded;
-    });
-  }
-
-  _selectOption(int index) {
-    setState(() {
-      _selectedIndex = index;
-      _isExpanded = false;
-    });
-    widget.onMatchSelected(index);
-  }
-
-  @override
-  void didUpdateWidget(covariant IDBox oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.loading) {
-      if (!_controller.isAnimating) {
-        _controller.repeat(reverse: true);
-      }
-    } else {
-      _controller.stop();
-      _controller.value = 1;
-    }
-  }
-  
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.loading ? null: _toggleExpanded,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.all(10.0),
-        decoration: BoxDecoration(
-          color: Colors.lightGreen[50],
-          border: Border.all(color: Colors.black, width: 1.0),
-          borderRadius: BorderRadius.circular(10.0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: widget.loading
-                    ? FadeTransition(
-                      opacity: _animation,
-                      child: RichText(text: widget.loadingText)
-                    )
-                    : widget.matches[_selectedIndex]
-                  ),
-                if (!widget.loading)
-                  Icon(
-                    _isExpanded ? Icons.expand_less : Icons.expand_more,
-                  ),
-              ],
-            ),
-            if (!widget.loading && _isExpanded) ...[
-              const SizedBox(height: 8),
-              const Divider(),
-              ... widget.matches.asMap().entries.map((entry) {
-                final index = entry.key;
-                final match = entry.value;
-                if (index == _selectedIndex) return const SizedBox.shrink();
-
-                return InkWell(
-                  onTap: () => _selectOption(index),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10.0),
-                    child: match,
-                  ),
-                );
-              }),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 
 class PlantSize {
   final String height;
@@ -784,15 +687,16 @@ class PlantDetailsWidget extends StatelessWidget {
     super.key,
     required this.details,
   });
-
-@override
+  
+  @override
   Widget build(BuildContext context) {
     return Text.rich(
       TextSpan(
         style: const TextStyle(color: Colors.black, height: 1.5),
-        children: <TextSpan>[
+        children: [
           // Cultivation tips + pruning
-          TextSpan(text: '${details.cultivationTips}.\n'),
+          buildTextWithLink(details.cultivationTips),
+          const TextSpan(text: '.\n'),
           TextSpan(text: '${details.pruning}.\n'),
           
           // Size
@@ -832,6 +736,179 @@ class PlantDetailsWidget extends StatelessWidget {
           ),
           TextSpan(text: '${details.hardiness}\n'),
         ],
+      ),
+    );
+  }
+}
+
+TextSpan buildTextWithLink(String htmlText) {
+  // Handle case with no link in text
+  if (!htmlText.contains('<a href="')) {
+    return TextSpan(text: htmlText);
+  }
+  
+  // Split text into parts
+  final beforeLink = htmlText.split('<a href="')[0];
+  final remaining = htmlText.split('<a href="')[1];
+  final url = remaining.split('">')[0];
+  final linkText = remaining.split('">')[1].split('</a>')[0];
+  final afterLink = remaining.split('</a>')[1];
+
+  return TextSpan(
+    style: const TextStyle(color: Colors.black, height: 1.5),
+    children: [
+      TextSpan(text: beforeLink),
+      TextSpan(
+        text: linkText,
+        style: const TextStyle(
+          color: Colors.blue,
+          decoration: TextDecoration.underline,
+          decorationColor: Colors.blue,
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () async {
+            final uri = Uri.parse(url);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri);
+            }
+          },
+      ),
+      TextSpan(text: afterLink),
+    ]
+  );
+}
+
+class IDBox extends StatefulWidget {
+  final bool loading;
+  final TextSpan loadingText;
+  final List<IDMatch> matches;
+  final int initialSelectedIndex;
+  final Function(int) onMatchSelected;
+
+  const IDBox({
+    super.key,
+    required this.loading,
+    required this.loadingText,
+    required this.matches,
+    required this.onMatchSelected,
+    this.initialSelectedIndex = 0,
+  });
+
+  @override
+  State<IDBox> createState() => _IDBoxState();
+}
+
+class _IDBoxState extends State<IDBox> with SingleTickerProviderStateMixin {
+  bool _isExpanded = false;
+  late int _selectedIndex;
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialSelectedIndex;
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 700),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _animation = Tween<double>(begin: 0.3, end: 1.0).animate(_controller);
+  }
+
+  void _toggleExpanded() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+  }
+
+  _selectOption(int index) {
+    setState(() {
+      _selectedIndex = index;
+      _isExpanded = false;
+    });
+    widget.onMatchSelected(index);
+  }
+
+  @override
+  void didUpdateWidget(covariant IDBox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.loading) {
+      if (!_controller.isAnimating) {
+        _controller.repeat(reverse: true);
+      }
+    } else {
+      _controller.stop();
+      _controller.value = 1;
+    }
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.loading ? null: _toggleExpanded,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.all(15.0),
+        decoration: BoxDecoration(
+          color: Colors.lightGreen[50],
+          border: Border.all(color: Colors.black, width: 1.0),
+          borderRadius: BorderRadius.circular(10.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: widget.loading
+                    ? FadeTransition(
+                      opacity: _animation,
+                      child: RichText(text: widget.loadingText)
+                    )
+                    : widget.matches[_selectedIndex]
+                  ),
+                if (!widget.loading)
+                  Icon(
+                    _isExpanded ? Icons.expand_less : Icons.expand_more,
+                  ),
+              ],
+            ),
+            if (!widget.loading && _isExpanded) ...[
+              const SizedBox(height: 8),
+              const Divider(),
+              ... widget.matches.asMap().entries.map((entry) {
+                final index = entry.key;
+                final match = entry.value;
+                if (index == _selectedIndex) return const SizedBox.shrink();
+
+                return InkWell(
+                  onTap: () => _selectOption(index),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10.0),
+                    child: match,
+                  ),
+                );
+              }),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -890,7 +967,7 @@ class _DetailBoxState extends State<DetailBox> with SingleTickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(10.0),
+      padding: const EdgeInsets.all(15.0),
       decoration: BoxDecoration(
         color: Colors.lightGreen[50],
         border: Border.all(color: Colors.black, width: 1.0),

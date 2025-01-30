@@ -4,6 +4,8 @@ from fastapi import APIRouter, File, Form, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 from app.services import PlantIdentificationService
 from app.config import settings
+import logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 

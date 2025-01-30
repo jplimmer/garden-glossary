@@ -1,10 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.endpoints import plant_identification, plant_details
-from app.core.logging import setup_logging
+from app.api.endpoints import plant_identification, plant_details_rhs
+import logging
+from app.core.logging import setup_logging  
 import uvicorn
 
 def create_application() -> FastAPI:
+    # Set-up logging
+    setup_logging()
+    logger = logging.getLogger(__name__)
+
     app = FastAPI()
     
     # Add CORS middleware to allow requests from mobile app
@@ -16,12 +21,9 @@ def create_application() -> FastAPI:
         allow_headers=["*"],  # Allows all headers
     )
 
-    # Set-up logging
-    setup_logging()
-
     # Include routers
     app.include_router(plant_identification.router, prefix="/api/v1")
-    app.include_router(plant_details.router, prefix="/api/v1")
+    app.include_router(plant_details_rhs.router, prefix="/api/v1")
 
     return app
 

@@ -2,6 +2,7 @@ import requests
 import json
 from app.config import settings
 import logging
+logger = logging.getLogger(__name__)
 
 class PlantIdentificationService:
     @staticmethod
@@ -28,7 +29,6 @@ class PlantIdentificationService:
             logging.error("Failed to parse JSON response.")
             return {}
 
-        # logging.info(f"{response_data}")
         matches = {
             i: {
                 'species': result['species']['scientificNameWithoutAuthor'],
