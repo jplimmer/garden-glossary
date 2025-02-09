@@ -50,7 +50,11 @@ class HomePageState extends State<HomePage> {
   // Access apiUrl from config
   String apiUrl = Config.apiUrl;
 
-  // Cancel token for cancelling requests
+  // Set up HTTP client
+  final dio = Dio()
+    ..options.validateStatus = (status) {
+      return status != null && status >= 200 && status < 501;
+    };
   CancelToken? _cancelToken;
   
   // State variables to control animations
@@ -149,76 +153,99 @@ class HomePageState extends State<HomePage> {
     
     try {
       String url = '$apiUrl/api/v1/identify-plant/';
-      var uri = Uri.parse(url);
-      
-      // Create multipart request
-      var request = http.MultipartRequest('POST', uri);
-      
-      // Add the image file to the request
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'file',
-          _image!.path
-        )
-      );
+      _cancelToken = CancelToken();
 
-      // Add the selected organ to the request
-      request.fields['organ'] = selectedOrgan.name;
+      // Create form data (image and organ)
+      var formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          _image!.path,
+          filename: _image!.path.split('/').last
+        ),
+        'organ': selectedOrgan.name,
+      });
 
       // Send the request
-      var response = await request.send();
-      
-      // Read and parse the response
-      var responseBody = await response.stream.bytesToString();
-
+      var response = await dio.post(
+        url,
+        data: formData,
+        cancelToken: _cancelToken,
+      );
+    
       // Check widget still mounted
       if (!mounted) return;
       
-      // Check the response - further error-handling required here?
-      if (response.statusCode == 200) {
-        var jsonResponse = json.decode(responseBody);
-        debugPrint('$jsonResponse');
+      // Check the response and handle errors
+      switch(response.statusCode) {
+        case 200:
+          var responseBody = response.data;
+          debugPrint(responseBody.toString());
 
-        List <IDMatch> matchOptionsList = [];
-        jsonResponse['matches'].forEach((key, value) {
-          String commonNamesString = (value['commonNames'] as List<dynamic>).join(', ');
-          matchOptionsList.add(
-            IDMatch(
-              species: value['species'],
-              score: value['score'],
-              commonNames: commonNamesString,
-            )
+          // Extract information from response.data
+          List <IDMatch> matchOptionsList = [];
+          responseBody['matches'].forEach((key, value) {
+            String commonNamesString = (value['commonNames'] as List<dynamic>).join(', ');
+            matchOptionsList.add(
+              IDMatch(
+                species: value['species'],
+                score: value['score'],
+                commonNames: commonNamesString,
+              )
+            );
+          });
+            
+          // Update idResult and loading status
+          setState(() {
+            _idLoading = false;
+            matchOptions = matchOptionsList;
+          });
+
+          // Call _getDetails function
+          _getDetails();
+          break;
+
+        case 404:
+          // Handle 'Species Not Found'
+          debugPrint('PlantNet: Species not found');
+          _reset(resetImage: false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Species not found - try uploading another photo or changing the selected organ'))
           );
-        });
-          
-        // Update idResult and loading status
-        setState(() {
-          _idLoading = false;
-          matchOptions = matchOptionsList;
-        });
+          break;
 
-        // Call _getDetails function
-        _getDetails();
+        case 429:
+          // Handle 'Too Many Requests'
+          debugPrint('PlantNet: Too many requests');
+          _reset(resetImage: false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Too many requests at PlantNet - try waiting a few minutes'))
+          );
+          break;
 
-      } else {
-        setState(() {
-          _isSubmitted = false;
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed with status ${response.statusCode}')),
-        );
+        default:
+          // Handle unexpected status
+          debugPrint('Plant error');
+          _reset(resetImage: false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('PlantNet error - check PlantNet is running properly'))
+          );
       }
 
-    } catch (e) {
-      setState(() {
-        _isSubmitted = false;
-      });
+    } on DioException catch (e) {
+      _reset(resetImage: false);
       
-      debugPrint('$e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error uploading image: $e')),
-      );
+      if (e.response != null) {
+        debugPrint('DioException: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Server error: ${e.response?.data}')),
+        );
+
+      } else {
+        // Error before request completed
+        debugPrint('Error sending request $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error uploading image: ${e.message}')),
+        );
+      }
     }
   }
   
@@ -252,7 +279,6 @@ class HomePageState extends State<HomePage> {
       if (!mounted) return;
       
       if (response.statusCode == 200) {
-        // final jsonResponse = jsonDecode(response.body);
         final jsonResponse = json.decode(utf8.decode(response.bodyBytes));
         debugPrint('JSON: $jsonResponse');
         
@@ -276,10 +302,12 @@ class HomePageState extends State<HomePage> {
     }
   }
   
-  // Function to reset app to home page (with no image)
-  void _reset() {
+  // Function to reset app to home page (image reset is optional)
+  void _reset({bool resetImage = true}) {
     setState(() {
-      _image = null;
+      if (resetImage) {
+        _image = null;
+      }
       _isSubmitted = false;
       _imageMoved = false;
       _idLoading = true;
@@ -390,7 +418,7 @@ class HomePageState extends State<HomePage> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white, width: 4),
       ),
-      onEnd: () => setState(() => _imageMoved = true),
+      // onEnd: () => setState(() => _imageMoved = true),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: Image.file(_image!, fit: BoxFit.cover),
@@ -558,226 +586,6 @@ class HomePageState extends State<HomePage> {
 
 } // HomePageState
 
-
-class IDMatch extends StatelessWidget {
-  final String species;
-  final double score;
-  final String commonNames;
-
-  const IDMatch({
-    super.key,
-    required this.species,
-    required this.score,
-    required this.commonNames,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Text.rich(
-      TextSpan(
-        style: const TextStyle(color: Colors.black, height: 1.5),
-        children: <TextSpan>[
-          const TextSpan(
-            text: 'Species: ',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-          TextSpan(text: species),
-          TextSpan(
-            text: ' (${(score*100).toStringAsFixed(2)}% probability)',
-            style: const TextStyle(fontStyle: FontStyle.italic),
-          ),
-          const TextSpan(
-            text: '\nCommon Names: ',
-            style: TextStyle(fontWeight: FontWeight.bold)
-          ),
-          TextSpan(text: commonNames),
-        ],
-      ),
-    );
-  }
-}
-
-class PlantSize {
-  final String height;
-  final String spread;
-
-  PlantSize({required this.height, required this.spread});
-
-  factory PlantSize.fromJson(Map<String, dynamic> json) {
-    return PlantSize(
-      height: json['height'] as String,
-      spread: json['spread'] as String,
-    );
-  }
-}
-
-class Soil {
-  final List<String> types;
-  final List<String> moisture;
-  final List<String> phLevels;
-
-  Soil({
-    required this.types,
-    required this.moisture,
-    required this.phLevels,
-  });
-
-  factory Soil.fromJson(Map<String, dynamic> json) {
-    return Soil(
-      types: List<String>.from(json['types']),
-      moisture: List<String>.from(json['moisture']),
-      phLevels: List<String>.from(json['ph_levels']),
-    );
-  }
-}
-
-class Position {
-  final String sun;
-  final String aspect;
-  final String exposure;
-
-  Position({
-    required this.sun,
-    required this.aspect,
-    required this.exposure,
-  });
-
-  factory Position.fromJson(Map<String, dynamic> json) {
-    return Position(
-      sun: json['sun'] as String,
-      aspect: json['aspect'] as String,
-      exposure: json['exposure'] as String,
-    );
-  }
-}
-
-class PlantDetails {
-  final PlantSize size;
-  final String hardiness;
-  final Soil soil;
-  final Position position;
-  final String cultivationTips;
-  final String pruning;
-
-  PlantDetails({
-    required this.size,
-    required this.hardiness,
-    required this.soil,
-    required this.position,
-    required this.cultivationTips,
-    required this.pruning,
-  });
-
-  factory PlantDetails.fromJson(Map<String, dynamic> json) {
-    final details = json['details'];
-    return PlantDetails(
-      size: PlantSize.fromJson(details['size']),
-      hardiness: details['hardiness'] as String,
-      soil: Soil.fromJson(details['soil']),
-      position: Position.fromJson(details['position']),
-      cultivationTips: details['cultivation_tips'] as String,
-      pruning: details['pruning'] as String,
-    );
-  }
-}
-
-class PlantDetailsWidget extends StatelessWidget {
-  final PlantDetails details;
-  
-  const PlantDetailsWidget({
-    super.key,
-    required this.details,
-  });
-  
-  @override
-  Widget build(BuildContext context) {
-    return Text.rich(
-      TextSpan(
-        style: const TextStyle(color: Colors.black, height: 1.5),
-        children: [
-          // Cultivation tips + pruning
-          buildTextWithLink(details.cultivationTips),
-          const TextSpan(text: '.\n'),
-          TextSpan(text: '${details.pruning}.\n'),
-          
-          // Size
-          const TextSpan(
-            text: '\nPlant Size:\n',
-            style: TextStyle(fontWeight: FontWeight.bold)
-          ),
-          TextSpan(text: 'Height: ${details.size.height}\n'),
-          TextSpan(text: 'Spread: ${details.size.spread}\n'),
-          
-          // Growing conditions
-          const TextSpan(
-            text: '\nGrowing conditions:\n',
-            style: TextStyle(fontWeight: FontWeight.bold)
-          ),
-          TextSpan(
-            text: 'Soil type(s): ${details.soil.types.join(", ")}\n'
-            'Moisture: ${details.soil.moisture.join(", ")}\n'
-            'pH levels: ${details.soil.phLevels.join(", ")}\n'
-          ),
-          
-          // Position
-          const TextSpan(
-            text: '\nPosition:\n',
-            style: TextStyle(fontWeight: FontWeight.bold)
-          ),
-          TextSpan(
-            text: 'Sunlight: ${details.position.sun}\n'
-            'Aspect: ${details.position.aspect}\n'
-            'Exposure: ${details.position.exposure}\n'
-          ),
-          
-          // Hardiness
-          const TextSpan(
-            text: '\nHardiness: ',
-            style: TextStyle(fontWeight: FontWeight.bold)
-          ),
-          TextSpan(text: '${details.hardiness}\n'),
-        ],
-      ),
-    );
-  }
-}
-
-TextSpan buildTextWithLink(String htmlText) {
-  // Handle case with no link in text
-  if (!htmlText.contains('<a href="')) {
-    return TextSpan(text: htmlText);
-  }
-  
-  // Split text into parts
-  final beforeLink = htmlText.split('<a href="')[0];
-  final remaining = htmlText.split('<a href="')[1];
-  final url = remaining.split('">')[0];
-  final linkText = remaining.split('">')[1].split('</a>')[0];
-  final afterLink = remaining.split('</a>')[1];
-
-  return TextSpan(
-    style: const TextStyle(color: Colors.black, height: 1.5),
-    children: [
-      TextSpan(text: beforeLink),
-      TextSpan(
-        text: linkText,
-        style: const TextStyle(
-          color: Colors.blue,
-          decoration: TextDecoration.underline,
-          decorationColor: Colors.blue,
-        ),
-        recognizer: TapGestureRecognizer()
-          ..onTap = () async {
-            final uri = Uri.parse(url);
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri);
-            }
-          },
-      ),
-      TextSpan(text: afterLink),
-    ]
-  );
-}
-
 class IDBox extends StatefulWidget {
   final bool loading;
   final TextSpan loadingText;
@@ -914,6 +722,43 @@ class _IDBoxState extends State<IDBox> with SingleTickerProviderStateMixin {
   }
 }
 
+class IDMatch extends StatelessWidget {
+  final String species;
+  final double score;
+  final String commonNames;
+
+  const IDMatch({
+    super.key,
+    required this.species,
+    required this.score,
+    required this.commonNames,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        style: const TextStyle(color: Colors.black, height: 1.5),
+        children: <TextSpan>[
+          const TextSpan(
+            text: 'Species: ',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+          TextSpan(text: species),
+          TextSpan(
+            text: ' (${(score*100).toStringAsFixed(2)}% probability)',
+            style: const TextStyle(fontStyle: FontStyle.italic),
+          ),
+          const TextSpan(
+            text: '\nCommon Names: ',
+            style: TextStyle(fontWeight: FontWeight.bold)
+          ),
+          TextSpan(text: commonNames),
+        ],
+      ),
+    );
+  }
+}
+
 class DetailBox extends StatefulWidget {
   final bool loading;
   final TextSpan loadingText;
@@ -988,5 +833,187 @@ class _DetailBoxState extends State<DetailBox> with SingleTickerProviderStateMix
       ),
     );
   }
+}
+
+class PlantDetailsWidget extends StatelessWidget {
+  final PlantDetails details;
+  
+  const PlantDetailsWidget({
+    super.key,
+    required this.details,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        style: const TextStyle(color: Colors.black, height: 1.5),
+        children: [
+          // Cultivation tips + pruning
+          buildTextWithLink(details.cultivationTips),
+          const TextSpan(text: '.\n'),
+          TextSpan(text: '${details.pruning}.\n'),
+          
+          // Size
+          const TextSpan(
+            text: '\nPlant Size:\n',
+            style: TextStyle(fontWeight: FontWeight.bold)
+          ),
+          TextSpan(text: 'Height: ${details.size.height}\n'),
+          TextSpan(text: 'Spread: ${details.size.spread}\n'),
+          
+          // Growing conditions
+          const TextSpan(
+            text: '\nGrowing conditions:\n',
+            style: TextStyle(fontWeight: FontWeight.bold)
+          ),
+          TextSpan(
+            text: 'Soil type(s): ${details.soil.types.join(", ")}\n'
+            'Moisture: ${details.soil.moisture.join(", ")}\n'
+            'pH levels: ${details.soil.phLevels.join(", ")}\n'
+          ),
+          
+          // Position
+          const TextSpan(
+            text: '\nPosition:\n',
+            style: TextStyle(fontWeight: FontWeight.bold)
+          ),
+          TextSpan(
+            text: 'Sunlight: ${details.position.sun}\n'
+            'Aspect: ${details.position.aspect}\n'
+            'Exposure: ${details.position.exposure}\n'
+          ),
+          
+          // Hardiness
+          const TextSpan(
+            text: '\nHardiness: ',
+            style: TextStyle(fontWeight: FontWeight.bold)
+          ),
+          TextSpan(text: '${details.hardiness}\n'),
+        ],
+      ),
+    );
+  }
+}
+
+class PlantDetails {
+  final PlantSize size;
+  final String hardiness;
+  final Soil soil;
+  final Position position;
+  final String cultivationTips;
+  final String pruning;
+
+  PlantDetails({
+    required this.size,
+    required this.hardiness,
+    required this.soil,
+    required this.position,
+    required this.cultivationTips,
+    required this.pruning,
+  });
+
+  factory PlantDetails.fromJson(Map<String, dynamic> json) {
+    final details = json['details'];
+    return PlantDetails(
+      size: PlantSize.fromJson(details['size']),
+      hardiness: details['hardiness'] as String,
+      soil: Soil.fromJson(details['soil']),
+      position: Position.fromJson(details['position']),
+      cultivationTips: details['cultivation_tips'] as String,
+      pruning: details['pruning'] as String,
+    );
+  }
+}
+
+class PlantSize {
+  final String height;
+  final String spread;
+
+  PlantSize({required this.height, required this.spread});
+
+  factory PlantSize.fromJson(Map<String, dynamic> json) {
+    return PlantSize(
+      height: json['height'] as String,
+      spread: json['spread'] as String,
+    );
+  }
+}
+
+class Soil {
+  final List<String> types;
+  final List<String> moisture;
+  final List<String> phLevels;
+
+  Soil({
+    required this.types,
+    required this.moisture,
+    required this.phLevels,
+  });
+
+  factory Soil.fromJson(Map<String, dynamic> json) {
+    return Soil(
+      types: List<String>.from(json['types']),
+      moisture: List<String>.from(json['moisture']),
+      phLevels: List<String>.from(json['ph_levels']),
+    );
+  }
+}
+
+class Position {
+  final String sun;
+  final String aspect;
+  final String exposure;
+
+  Position({
+    required this.sun,
+    required this.aspect,
+    required this.exposure,
+  });
+
+  factory Position.fromJson(Map<String, dynamic> json) {
+    return Position(
+      sun: json['sun'] as String,
+      aspect: json['aspect'] as String,
+      exposure: json['exposure'] as String,
+    );
+  }
+}
+
+TextSpan buildTextWithLink(String htmlText) {
+  // Handle case with no link in text
+  if (!htmlText.contains('<a href="')) {
+    return TextSpan(text: htmlText);
+  }
+  
+  // Split text into parts
+  final beforeLink = htmlText.split('<a href="')[0];
+  final remaining = htmlText.split('<a href="')[1];
+  final url = remaining.split('">')[0];
+  final linkText = remaining.split('">')[1].split('</a>')[0];
+  final afterLink = remaining.split('</a>')[1];
+
+  return TextSpan(
+    style: const TextStyle(color: Colors.black, height: 1.5),
+    children: [
+      TextSpan(text: beforeLink),
+      TextSpan(
+        text: linkText,
+        style: const TextStyle(
+          color: Colors.blue,
+          decoration: TextDecoration.underline,
+          decorationColor: Colors.blue,
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () async {
+            final uri = Uri.parse(url);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri);
+            }
+          },
+      ),
+      TextSpan(text: afterLink),
+    ]
+  );
 }
 

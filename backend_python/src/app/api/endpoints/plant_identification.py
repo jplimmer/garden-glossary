@@ -1,52 +1,50 @@
 import os
 import uuid
-from fastapi import APIRouter, File, Form, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, File, Form, UploadFile, status
+from app.models import Organ, PlantIdentificationResponse
 from app.services import PlantIdentificationService
 from app.config import settings
 import logging
+
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+# Router endpoint
+router = APIRouter(
+    tags=["garden_glossary"],
+)
 
-@router.post("/identify-plant/")
+@router.post(
+    "/identify-plant/",
+    response_model=PlantIdentificationResponse,
+    summary="Identify plant species based on image upload, using the PlantNet API",
+    status_code=status.HTTP_200_OK
+)
 async def identify_plant(
     file: UploadFile = File(...),
-    organ: str = Form(...)
+    organ: Organ = Form(...)
 ):
+    # Ensure uploads directory exists
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     
-    try:
-        # Ensure uploads directory exists
-        os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-        
-        # Generate a unique filename
-        file_extension = file.filename.split('.')[-1]
-        unique_filename = f"{uuid.uuid4()}.{file_extension}"
-        file_location = os.path.join(settings.UPLOAD_DIR, unique_filename)
-        
+    # Generate a unique filename
+    file_extension = file.filename.split('.')[-1]
+    unique_filename = f"{uuid.uuid4()}.{file_extension}"
+    file_location = os.path.join(settings.UPLOAD_DIR, unique_filename)
+
+    try:        
         # Save the uploaded file
         with open(file_location, "wb+") as file_object:
             file_object.write(await file.read())
         
-        try:
-            # Identify plant using PlantNet API
-            service = PlantIdentificationService()
-            matches = service.identify_plant(file_location, organ)
-            
-            # Remove the file after processing
-            os.remove(file_location)
-
-            # Return JSON
-            return JSONResponse(content={"matches": matches})
+        # Identify plant using PlantNet API
+        service = PlantIdentificationService()
+        result = service.identify_plant(file_location, organ)
         
-        except Exception as processing_error:
-            # If processing fails, keep the file for debugging
-            return {
-                "error": f"Image processing failed: {str(processing_error)}",
-                "file_location": file_location
-            }
-    
-    except Exception as e:
-        # Handle file upload errors
-        raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
+        # Return response based on service result
+        return PlantIdentificationResponse(matches=result['matches'])
+                
+    finally:
+        # Remove file after processing
+        if os.path.exists(file_location):
+            os.remove(file_location)
 
