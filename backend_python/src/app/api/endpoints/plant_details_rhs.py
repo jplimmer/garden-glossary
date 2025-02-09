@@ -1,23 +1,23 @@
-from fastapi import APIRouter
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from fastapi import APIRouter, status
+from app.models import PlantDetailRequest, PlantDetailResponse
 from app.services import PlantDetailsRhsService
 import logging
+
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+# Router endpoint
+router = APIRouter(
+    tags=["garden_glossary"],
+)
 
-class PlantRequest(BaseModel):
-    plant: str
-
-@router.post("/plant-details-rhs/")
-async def plant_details(request: PlantRequest):
+@router.post(
+    "/plant-details-rhs/",
+    response_model=PlantDetailResponse,
+    summary="Extract key cultivation details about a plant from the RHS website",
+    status_code=status.HTTP_200_OK
+)
+async def plant_details(request: PlantDetailRequest):
     service = PlantDetailsRhsService()
     details = await service.retrieve_plant_details(request.plant)
-    logger.info(f'details: {details}')
-
-    return JSONResponse(
-        content={'details': details},
-        media_type='application/json',
-        )
+    return PlantDetailResponse(details=details)
 
