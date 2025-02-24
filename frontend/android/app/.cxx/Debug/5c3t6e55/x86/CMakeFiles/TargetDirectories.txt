@@ -1,0 +1,2 @@
+C:/Users/james/OneDrive/Documents/Coding/Projects/garden-glossary/frontend_flutter/android/app/.cxx/Debug/5c3t6e55/x86/CMakeFiles/edit_cache.dir
+C:/Users/james/OneDrive/Documents/Coding/Projects/garden-glossary/frontend_flutter/android/app/.cxx/Debug/5c3t6e55/x86/CMakeFiles/rebuild_cache.dir

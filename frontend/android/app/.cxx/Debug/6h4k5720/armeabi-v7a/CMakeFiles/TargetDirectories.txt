@@ -1,0 +1,2 @@
+C:/Users/james/OneDrive/Documents/Coding/Projects/garden-glossary/frontend/android/app/.cxx/Debug/6h4k5720/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/james/OneDrive/Documents/Coding/Projects/garden-glossary/frontend/android/app/.cxx/Debug/6h4k5720/armeabi-v7a/CMakeFiles/rebuild_cache.dir
