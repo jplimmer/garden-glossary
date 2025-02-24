@@ -1,0 +1,6 @@
+# Default line-ending handling
+* text=auto
+
+# Specific binary file types
+*.png binary
+*.jpg binary

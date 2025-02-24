@@ -1,2 +1,0 @@
-from .plant_identification import PlantIdentificationService
-from .plant_details_rhs import PlantDetailsRhsService
