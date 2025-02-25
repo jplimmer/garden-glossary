@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # Router endpoint
 router = APIRouter(
-    tags=["garden_glossary"],
+    tags=["plant_identification"],
 )
 
 @router.post(

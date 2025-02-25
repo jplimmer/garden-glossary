@@ -1,3 +1,5 @@
+import os
+import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -6,7 +8,6 @@ from app.api.endpoints import plant_identification, plant_details_rhs, plant_det
 from app.exceptions import PlantServiceException
 import logging
 from app.core.logging import setup_logging
-import uvicorn
 
 def create_application() -> FastAPI:
     # Set-up logging
@@ -52,11 +53,18 @@ def create_application() -> FastAPI:
     app.include_router(plant_details_rhs.router, prefix="/api/v1")
     app.include_router(plant_details_llm.router, prefix="/api/v1")
 
+    # Add health-check endpoint
+    @app.get("/health", tags=["api_health"])
+    async def health_check():
+        return {"status": "healthy"}
+
     return app
 
+# Create FastAPI application
 app = create_application()
 
 if __name__ == "__main__":
-    # Run the server
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Run the server if executed directly (local development)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port, reload=True)
 
