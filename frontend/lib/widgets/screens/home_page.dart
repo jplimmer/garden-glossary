@@ -1,13 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:garden_glossary/models/id_match.dart';
 import 'package:garden_glossary/widgets/plant/id_box.dart';
 import 'package:garden_glossary/widgets/plant/detail_box.dart';
+import 'package:garden_glossary/widgets/buttons/health_check_button.dart';
 import 'package:garden_glossary/services/image_picker_service.dart';
 import 'package:garden_glossary/services/plant_identification_service.dart';
 import 'package:garden_glossary/services/plant_details_service.dart';
+import 'package:garden_glossary/services/health_check_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,6 +24,7 @@ class HomePageState extends State<HomePage>
   with PlantDetailsStateMixin {
   final ImagePickerService _imagePickerService = ImagePickerService();
   final PlantIdentificationService _plantIdService = PlantIdentificationService();
+  final HealthCheckService _healthCheckService = HealthCheckService();
     
   // State variables to control animations
   bool _isSubmitted = false;
@@ -42,9 +44,6 @@ class HomePageState extends State<HomePage>
     final image = await _imagePickerService.takePhoto(context);
     if (image != null && mounted) {
       setState(() => _image = image);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Photo taken successfully.')),
-      );
     }
   }
 
@@ -53,9 +52,6 @@ class HomePageState extends State<HomePage>
     final image = await _imagePickerService.pickFromGallery(context);
     if (image != null && mounted) {
       setState(() => _image = image);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Photo added successfully.')),
-      );
     }
   }
 
@@ -245,7 +241,8 @@ class HomePageState extends State<HomePage>
         fit: BoxFit.scaleDown,
         child: Text(
           'Garden\nGlossary',
-          style: GoogleFonts.cormorant(
+          style: TextStyle(
+            fontFamily: 'Cormorant',
             color: theme.colorScheme.primary,
             fontSize: 70,
             fontWeight: FontWeight.bold,
@@ -384,13 +381,7 @@ class HomePageState extends State<HomePage>
             mini: true,
             child: const Icon(Icons.refresh),
           ),
-          FloatingActionButton(
-            onPressed: null,
-            backgroundColor: theme.colorScheme.onPrimary,
-            foregroundColor: theme.colorScheme.primary,
-            mini: true,
-            child: const Icon(Icons.settings),
-          ),
+          HealthCheckButton(healthCheckService: _healthCheckService),
         ],
       ),
     );

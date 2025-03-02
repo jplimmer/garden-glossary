@@ -39,6 +39,7 @@ class PlantIdentificationService {
         'organ': organ,
       });
 
+      debugPrint(_baseUrl);
       var response = await _dio.post(
         '$_baseUrl/api/v1/identify-plant/',
         options: Options(

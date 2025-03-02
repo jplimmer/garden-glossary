@@ -6,7 +6,7 @@ import 'package:garden_glossary/widgets/screens/home_page.dart';
 void main() async {
   // Load environment variables for backend URL
   await dotenv.load();
-  ApiConfig.setEnvironment(Environment.physical);
+  ApiConfig.setEnvironment(Environment.production);
   runApp(const MyApp());
 }
 
