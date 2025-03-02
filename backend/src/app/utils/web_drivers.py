@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from typing import Generator
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -28,9 +29,18 @@ def create_driver() -> Generator[tuple[WebDriver, WebDriverWait], None, None]:
     Raises:
         PlantServiceException: If browser initialisation fails
     """
-    driver = webdriver.Chrome()
+    logging.info("Creating driver...")
+    # Set up Chrome options
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    # chrome_options.add_argument("--remote-debugging-port=9222")
+    
+    driver = webdriver.Chrome(options=chrome_options)
+
     try:
-        driver.maximize_window()
+        # driver.maximize_window()
         wait = WebDriverWait(driver, timeout=3)
         yield driver, wait
     except WebDriverException as e:    
@@ -42,7 +52,7 @@ def create_driver() -> Generator[tuple[WebDriver, WebDriverWait], None, None]:
             details={"error": str(e)}
         )
     finally:
-        logger.info("About to quit driver")
+        logger.info("Quitting driver...")
         try:
             driver.quit()
         except Exception as e:

@@ -32,6 +32,7 @@ backend/conda_Dockerfile
 .pub-cache/
 .pub/
 /build/
+frontend/android/app/.cxx/
 
 # Web related
 lib/generated_plugin_registrant.dart
