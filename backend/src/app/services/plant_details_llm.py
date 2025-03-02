@@ -1,12 +1,12 @@
 """Service to find key cultivation details about a plant using an LLM."""
 
 from typing import Dict
-from anthropic import AsyncAnthropic
 import json
+from fastapi import status
+from anthropic import AsyncAnthropic
 from app.config import settings
 from app.exceptions import PlantServiceException, PlantServiceErrorCode
 from app.models import PlantDetails
-from fastapi import status
 import logging
 
 logger = logging.getLogger(__name__)
@@ -45,6 +45,7 @@ class PlantAnthropicClient:
     
     async def get_plant_details(self, plant_name: str) -> Dict:        
         try:
+            logging.info(f"Calling Anthropic API for plant: {plant_name}")
             response = await self.client.messages.create(
                 model=self.model,
                 max_tokens=1024,
@@ -56,6 +57,7 @@ class PlantAnthropicClient:
                 ]
             )
             details = json.loads(response.content[0].text)
+            logging.info(f"LLM details: {details}")
             return details
         except Exception as e:
             raise PlantServiceException(

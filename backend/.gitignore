@@ -1,3 +1,6 @@
+# Unused Dockerfile
+conda_Dockerfile
+
 # Python
 __pycache__/
 *.py[cod]

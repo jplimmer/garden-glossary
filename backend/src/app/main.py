@@ -3,15 +3,15 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from app.config import settings
 from app.models import ErrorResponse
 from app.api.endpoints import plant_identification, plant_details_rhs, plant_details_llm
 from app.exceptions import PlantServiceException
 import logging
-from app.core.logging import setup_logging
 
 def create_application() -> FastAPI:
-    # Set-up logging
-    setup_logging()
+    # Configure logging globally
+    settings.setup_logging()
     logger = logging.getLogger(__name__)
 
     app = FastAPI(
@@ -57,6 +57,14 @@ def create_application() -> FastAPI:
     @app.get("/health", tags=["api_health"])
     async def health_check():
         return {"status": "healthy"}
+    
+    # Add environment endpoint:
+    @app.get("/env", tags=["api_health"])
+    async def env_check():
+        return {
+            "AWS_EXECUTION_ENV": os.getenv("AWS_EXECUTION_ENV"),
+            "DOCKER_ENVIRONMENT": os.getenv("DOCKER_ENVIRONMENT")
+            }
 
     return app
 

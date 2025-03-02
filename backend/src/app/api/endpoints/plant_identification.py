@@ -1,9 +1,9 @@
 import os
 import uuid
-from fastapi import APIRouter, File, Form, UploadFile, status
+from fastapi import APIRouter, File, Form, UploadFile, status, Depends
 from app.models import Organ, PlantIdentificationResponse
 from app.services import PlantIdentificationService
-from app.config import settings
+from app.config import get_settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,8 @@ router = APIRouter(
 )
 async def identify_plant(
     file: UploadFile = File(...),
-    organ: Organ = Form(...)
+    organ: Organ = Form(...),
+    settings = Depends(get_settings)
 ):  
     # Ensure uploads directory exists
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)

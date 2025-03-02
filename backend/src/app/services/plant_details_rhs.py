@@ -1,7 +1,7 @@
 """Service to extract key cultivation details about a plant from the RHS website."""
-
 import asyncio
 from fastapi import status
+from app.config import settings
 from app.utils import create_driver, CookieConsentHandler
 from app.models import Size, Soil, Position, PlantDetails
 from app.exceptions import PlantServiceErrorCode, PlantServiceException
@@ -305,6 +305,7 @@ class PlantScraper:
 
             with create_driver() as (driver, wait):
                 try:
+                    logging.info(f"Using driver to get {url}")
                     driver.get(url)
                 except WebDriverException as e:
                     raise PlantServiceException(
@@ -315,7 +316,7 @@ class PlantScraper:
                     )
                 
                 # Handle cookie consent
-                logger.info("About to handle cookie consent")
+                logger.info("Handling cookie consent...")
                 if not CookieConsentHandler.handle(driver):
                     raise PlantServiceException(
                         error_code=PlantServiceErrorCode.COOKIE_CONSENT_FAILED,
@@ -372,7 +373,7 @@ class PlantScraper:
                 full_details_selector = 'lib-plant-details-full'
                 summary_selector = 'lib-plant-details-summary'
                 try:
-                    logger.info("Entered elements try block")
+                    logger.info("Looking for lib-plant-details elements...")
                     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                     
                     element = wait.until(
@@ -395,7 +396,7 @@ class PlantScraper:
                     wait.until(
                         EC.visibility_of_element_located((By.CSS_SELECTOR, f"{full_details_selector}"))
                     )
-                    logger.info("Full details visibile - implicitly waiting 1 second")
+                    logger.info("Full details visible - implicitly waiting 1 second")
                     driver.implicitly_wait(1)
 
                 except TimeoutException:
@@ -408,6 +409,7 @@ class PlantScraper:
                 # Extract details
                 logging.info("Getting soup...")
                 soup = BeautifulSoup(driver.page_source, "lxml")
+                logging.info("Extracting details from soup...")
                 return self._extract_all_details(soup)
             
         except StaleElementReferenceException as e:
@@ -469,7 +471,7 @@ class PlantDetailsRhsService:
             PlantServiceException: If retrieval fails for any reason.
         """
         try:
-            scraper = PlantScraper(base_url='https://www.rhs.org.uk/plants/search-results?query=')
+            scraper = PlantScraper(base_url=settings.RHS_BASE_URL)
 
             details = await asyncio.to_thread(scraper.get_plant_details, plant)
             
@@ -481,7 +483,7 @@ class PlantDetailsRhsService:
                 )
             
             try:
-                logging.info(f"Details: {details}")
+                logging.info(f"RHS details: {details}")
                 return details
             except asyncio.TimeoutError:
                 raise PlantServiceException(

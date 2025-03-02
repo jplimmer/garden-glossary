@@ -31,8 +31,9 @@ class PlantIdentificationService:
                 files = [('images', ((image_path), (image_data)))]
                 data = {'organs': [organ.value]}
 
+                logging.info("Calling PlantNet API...")
                 response = requests.post(
-                    url=settings.API_ENDPOINT, 
+                    url=settings.PLANTNET_ENDPOINT, 
                     files=files, 
                     data=data
                 )
@@ -52,6 +53,7 @@ class PlantIdentificationService:
                         for i, result in enumerate(results)
                     }
 
+                    logging.info(f"PlantNet matches: {matches}")
                     return {'matches': matches}
                 
                 # Handle 'Species Not Found'
