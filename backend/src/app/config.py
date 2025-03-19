@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     # Define PLANTNET_ENDPOINT dynamically so it updates if other settings change
     @computed_field
     def PLANTNET_ENDPOINT(self) -> str:
-        return f"https://my-api.plantnet.org/v2/identify/{self.PROJECT}?api-key={self.PLANTNET_API_KEY}&nb-results={self.NUM_RESULTS}"
+        return f"https://my-api.plantnet.org/v2/identify/{self.PROJECT}?api-key={self.PLANTNET_API_KEY}&nb-results={self.NUM_RESULTS}&include-related-images={self.SIMSEARCH}"
 
     class Config:
         env_file = ".env"

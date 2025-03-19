@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:garden_glossary/config/api_config.dart';
 import 'package:garden_glossary/models/id_match.dart';
 import 'package:garden_glossary/exceptions/exceptions.dart';
+import 'package:garden_glossary/services/mock_api_services.dart';
 
 class PlantIdentificationService {
   final Dio _dio;
@@ -27,6 +28,13 @@ class PlantIdentificationService {
     required String organ,
     required BuildContext context,
   }) async {
+    // Use Mock API service if enabled
+    if (ApiConfig.current.useMockAPI) {
+      Map<String, dynamic> mockMatches = await MockIdentificationService().fetchData();
+      return _parseMatchOptions(mockMatches);
+    }
+    
+    // Otherwise use real API service
     try {
       // Cancel any previous request before making a new one
       cancelRequest();
@@ -80,11 +88,13 @@ class PlantIdentificationService {
     List<IDMatch> matchOptionsList = [];
     responseBody['matches'].forEach((key, value) {
       String commonNamesString = (value['commonNames'] as List<dynamic>).join(', ');
+      List<String> imageUrlsList = (value['imageUrls'] as List<dynamic>).map((url) => url as String).toList();
       matchOptionsList.add(
         IDMatch(
           species: value['species'],
           score: value['score'],
           commonNames: commonNamesString,
+          imageUrls: imageUrlsList,
         )
       );
     });

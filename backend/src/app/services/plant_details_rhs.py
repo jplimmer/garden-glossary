@@ -229,7 +229,12 @@ class PlantScraper:
             elif isinstance(element, str):
                 text_parts.append(element)
 
-        return ''.join(text_parts) if text_parts else None
+        if text_parts:
+            full_text = ''.join(text_parts).strip()
+            if full_text and not full_text.endswith('.'):
+                full_text += '.'
+
+        return full_text if full_text else None
     
     def _extract_pruning(self, soup: BeautifulSoup) -> Optional[str]:
         """
@@ -260,7 +265,12 @@ class PlantScraper:
             elif isinstance(element, str):
                 text_parts.append(element)
 
-        return ''.join(text_parts) if text_parts else None
+        if text_parts:
+            full_text = ''.join(text_parts).strip()
+            if full_text and not full_text.endswith('.'):
+                full_text += '.'
+
+        return full_text if full_text else None
     
     def _extract_field(self, panel: BeautifulSoup, field_name: str) -> Optional[str]:
         """

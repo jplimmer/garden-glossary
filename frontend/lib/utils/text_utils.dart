@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-
 TextSpan buildTextWithLink(String htmlText) {
   // RegEx with named capturing groups for links
   final regExp = RegExp(r'(<a href="(?<url>[^"]+)">(?<linkText>[^<]+)</a>)');

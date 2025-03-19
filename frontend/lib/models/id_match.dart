@@ -4,12 +4,14 @@ class IDMatch extends StatelessWidget {
   final String species;
   final double score;
   final String commonNames;
+  final List<String> imageUrls;
 
   const IDMatch({
     super.key,
     required this.species,
     required this.score,
     required this.commonNames,
+    this.imageUrls = const [],
   });
 
   @override
