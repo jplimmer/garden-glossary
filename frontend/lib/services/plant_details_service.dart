@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:garden_glossary/config/api_config.dart';
 import 'package:garden_glossary/models/plant_details.dart';
+import 'package:garden_glossary/services/mock_api_services.dart';
 
 class PlantDetailsService {
   final Dio _dio;
@@ -21,6 +22,13 @@ class PlantDetailsService {
   String get baseUrl => ApiConfig.current.baseUrl;
   
   Future<PlantDetails?> _fetchDetails(String endpoint, String plant) async {
+    // Use Mock API service if enabled
+    if (ApiConfig.current.useMockAPI) {
+      Map<String, dynamic> mockDetails = await MockDetailsService().fetchData();
+      return PlantDetails.fromJson(mockDetails);
+    }
+
+    // Otherwise use real API service
     try {
       // Cancel any previous request before making a new one
       cancelRequest();

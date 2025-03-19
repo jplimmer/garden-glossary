@@ -5,7 +5,7 @@ import 'package:garden_glossary/config/api_config.dart';
 class HealthCheckService {
   String get _baseUrl => ApiConfig.current.baseUrl;
 
-  Future<bool> checkHealth() async {
+  Future<bool> checkHealth() async {  
     try {
       final response = await http.get(Uri.parse('$_baseUrl/health'));
 

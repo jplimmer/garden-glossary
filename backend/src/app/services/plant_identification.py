@@ -45,10 +45,11 @@ class PlantIdentificationService:
 
                     matches = {
                         i: {
-                            'species': result['species']['scientificNameWithoutAuthor'],
-                            'genus': result['species']['genus']['scientificNameWithoutAuthor'],
-                            'score': result['score'],
-                            'commonNames': result['species']['commonNames']
+                            'species': result.get('species', {}).get('scientificNameWithoutAuthor', ''),
+                            'genus': result.get('species', {}).get('genus', {}).get('scientificNameWithoutAuthor', ''),
+                            'score': result.get('score', 0.0),
+                            'commonNames': result.get('species', {}).get('commonNames', []),
+                            'imageUrls': PlantIdentificationService._extract_image_urls(result['images'], 'm', 3)
                         }
                         for i, result in enumerate(results)
                     }
@@ -97,4 +98,25 @@ class PlantIdentificationService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @staticmethod
+    def _extract_image_urls(images: list, size: str = "s", max_results: int = None) -> list:
+        """
+        Extracts image URLs of specified size from the PlantNet API response.
+        
+        Args:
+            images (list): List of image objects from the PlantNet API response.
+            size (str): Size of image URLs to extract ("o", "m" or "s").
+            max_results (int, optional): Maximum number of URLs to return. If None, returns all URLs.
+
+        Returns:
+            list: List of image URLs, limited by the max_result parameter if specified.
+        """
+        image_urls = []
+        for image in images:
+            if image.get("url", {}).get(size):
+                image_urls.append(image["url"][size])
+                if max_results is not None and len(image_urls) >= max_results:
+                    break
+        return image_urls
+
     

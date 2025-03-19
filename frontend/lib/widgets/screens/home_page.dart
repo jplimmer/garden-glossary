@@ -1,14 +1,27 @@
+// Flutter imports
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
+
+// Model imports
+import 'package:garden_glossary/models/organ.dart';
 import 'package:garden_glossary/models/id_match.dart';
-import 'package:garden_glossary/widgets/plant/id_box.dart';
-import 'package:garden_glossary/widgets/plant/detail_box.dart';
-import 'package:garden_glossary/widgets/buttons/health_check_button.dart';
+
+// 'Input' imports
+import 'package:garden_glossary/widgets/background_widget.dart';
+// import 'package:garden_glossary/widgets/image_container.dart';
+import 'package:garden_glossary/widgets/input/user_image_container.dart';
+import 'package:garden_glossary/widgets/input/input_controls.dart';
 import 'package:garden_glossary/services/image_picker_service.dart';
+import 'package:garden_glossary/widgets/input/health_check_button.dart';
+import 'package:garden_glossary/services/health_check_service.dart';
+
+// 'Result' imports
 import 'package:garden_glossary/services/plant_identification_service.dart';
 import 'package:garden_glossary/services/plant_details_service.dart';
-import 'package:garden_glossary/services/health_check_service.dart';
+import 'package:garden_glossary/widgets/results/match_image_container.dart';
+import 'package:garden_glossary/widgets/results/results_display.dart';
+// import 'package:garden_glossary/widgets/visual_effects/shimmer_effect.dart';
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -17,9 +30,6 @@ class HomePage extends StatefulWidget {
   HomePageState createState() => HomePageState();
 }
 
-// Organ options
-enum Organ {leaf, flower, fruit, bark, auto,}
-
 class HomePageState extends State<HomePage>
   with PlantDetailsStateMixin {
   final ImagePickerService _imagePickerService = ImagePickerService();
@@ -27,10 +37,11 @@ class HomePageState extends State<HomePage>
   final HealthCheckService _healthCheckService = HealthCheckService();
     
   // State variables to control animations
+  Organ selectedOrgan = Organ.flower;
   bool _isSubmitted = false;
   bool _imageMoved = false;
   bool _idLoading = true;
-  Organ selectedOrgan = Organ.flower;
+  int displayedImageIndex= 0;
 
   // Image to upload to backend
   File? _image;
@@ -38,6 +49,18 @@ class HomePageState extends State<HomePage>
   // Matches to display and selected match
   List<IDMatch> matchOptions = [];
   int selectedMatchIndex = 0;
+  
+  // Function to update selected organ index
+  void _onOrganChanged (Organ organ) {
+    setState(() {
+      selectedOrgan = organ;
+    });
+  }
+
+  // Function to handle image container animation end
+  void _onImageContainerAnimationEnd() {
+    setState(() => _imageMoved = _isSubmitted);
+  }
   
   // Function to take photo with device camera using ImagePickerService
   Future<void> _takePhoto() async {
@@ -100,7 +123,7 @@ class HomePageState extends State<HomePage>
     });
     _loadPlantDetails();
   }
-  
+   
   // Function to retrieve details using PlantDetailsService
   Future<void> _loadPlantDetails() async {
     final plant = matchOptions[selectedMatchIndex].species;
@@ -128,240 +151,92 @@ class HomePageState extends State<HomePage>
     Widget build(BuildContext context) {
     var theme = Theme.of(context);
     final screenSize = MediaQuery.of(context).size;
-    final imageSmallHeight = screenSize.width * 0.4;
+    final imageSmallHeight = screenSize.width * 0.35;
 
     return Scaffold(
       body: Stack(
         children: [
-          _buildBackground(),
+          const BackgroundWidget(),
           SafeArea(
             child: Padding(
               padding: EdgeInsets.only(
-                left: screenSize.width * 0.02,
-                right: screenSize.width * 0.02,
+                left: screenSize.width * 0.05,
+                right: screenSize.width * 0.05,
                 top: screenSize.height * 0.02,
               ),
               child: SingleChildScrollView(
                 child: Stack(
                   children: [
-                    _buildTitleImageInputContainer(theme, screenSize, imageSmallHeight),
-                    if (_imageMoved)
-                      Align(
-                        alignment: Alignment.topCenter,
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            top: (imageSmallHeight) + 20,
-                          ),
-                          child: _buildResults(screenSize),
+                    // Title or user-selected image container
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: UserImageContainer(
+                        image: _image,
+                        isSubmitted: _isSubmitted,
+                        baseHeight: imageSmallHeight,
+                        onAnimationEnd: _onImageContainerAnimationEnd,
+                        theme: theme,
+                        screenSize: screenSize,
+                      ),
+                    ),
+
+                    // Input Controls if 'Submit' not yet pressed
+                    if (!_isSubmitted)
+                      Padding(
+                        padding: EdgeInsets.only(
+                          top: (screenSize.height / 2) + 10
+                        ),
+                        child: InputControls(
+                          onCameraPressed: _takePhoto,
+                          onGalleryPressed: _pickFromGallery,
+                          onSubmitPressed: _submitImage,
+                          initialOrgan: selectedOrgan,
+                          onOrganChanged: _onOrganChanged,
+                          theme: theme,
+                          screenSize: screenSize,
                         ),
                       ),
+
+                    // 'Results' sections (after 'Submit' pressed)
+                    if (_imageMoved) ...[
+                      // Results (IDBox & DetailBox)
+                      Padding(
+                        padding: EdgeInsets.only(
+                          top: (imageSmallHeight) + 20,
+                        ),
+                        child: ResultsDisplay(
+                          matchOptions: matchOptions,
+                          idLoading: _idLoading,
+                          onMatchSelected: onMatchSelected,
+                          detailsLoading: isLoading,
+                          loadingText: loadingText,
+                          plantDetails: plantDetails,
+                          enableStreaming: true,
+                        ),
+                      ),
+                      // PlantNet image container (displayed on top of Results when expanded)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: MatchImageContainer(
+                          loading: _idLoading,
+                          imageUrls: matchOptions.isNotEmpty ? matchOptions[selectedMatchIndex].imageUrls : [],
+                          baseHeight: imageSmallHeight,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
           ),
 
+          // Reset and HealthCheck buttons
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: _buildActionButtons(theme),
           ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildBackground() {
-    return Container(
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: const AssetImage('assets/images/background.jpg'),
-          fit: BoxFit.cover,
-          colorFilter: ColorFilter.mode(
-            Colors.black.withValues(alpha: 0.5),
-            BlendMode.dstATop
-          ),
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildTitleImageInputContainer(ThemeData theme, Size screenSize, imageSmallHeight) {
-    return SizedBox(
-      height: screenSize.height,
-      child: Center(
-        child: AnimatedAlign(
-          alignment: _isSubmitted
-            ? Alignment.topCenter
-            : const Alignment(0.0, -0.0),
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-          onEnd: () => setState(() => _imageMoved = _isSubmitted),
-          child: Column(      
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _image != null
-                ? _buildImageContainer(imageSmallHeight)
-                : _buildTitle(theme, screenSize, imageSmallHeight),
-              const SizedBox(height: 20),
-              if (!_isSubmitted && !_imageMoved)
-                _buildInputSection(theme, screenSize),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-    
-  Widget _buildImageContainer(double imageSmallHeight) {
-    final imageSize = _isSubmitted ? imageSmallHeight : imageSmallHeight * 1.5;
-    
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-      width: imageSize,
-      height: imageSize,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white, width: 4),
-      ),
-      // onEnd: () => setState(() => _imageMoved = true),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Image.file(_image!, fit: BoxFit.cover),
-      ),
-    );
-  }
-
-  Widget _buildTitle(ThemeData theme, Size screenSize, double imageSmallHeight) {
-    return SizedBox(
-      height: imageSmallHeight * 1.5,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          'Garden\nGlossary',
-          style: TextStyle(
-            fontFamily: 'Cormorant',
-            color: theme.colorScheme.primary,
-            fontSize: 70,
-            fontWeight: FontWeight.bold,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInputSection(ThemeData theme, Size screenSize) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: screenSize.height * 0.3) ,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const Spacer(flex: 1),
-          _buildImageButtons(),
-          const Spacer(flex: 1),
-          _buildOrganPicker(),
-          const Spacer(flex: 5),
-          _buildSubmitButton(theme),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImageButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        ElevatedButton(
-          onPressed: _takePhoto,
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10)
-          ),
-          child: const Text('Camera'),
-        ),
-        const SizedBox(width: 20),
-        ElevatedButton(
-          onPressed: _pickFromGallery,
-          child: const Text('Gallery'),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildOrganPicker() {
-    final FixedExtentScrollController scrollController = FixedExtentScrollController(initialItem: 1);
-    
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const Text(
-          'Organ:',
-          style: TextStyle(fontSize: 18),
-        ),
-        SizedBox(
-          width: 110,
-          height: 80,
-          child: CupertinoPicker(
-            scrollController: scrollController,
-            itemExtent: 28.0,
-            onSelectedItemChanged: (int index) {
-              setState(() {
-                selectedOrgan = Organ.values[index];
-              });
-            },
-            children: Organ.values.map((organ) {
-              return Center(child: Text(organ.toString().split('.').last));
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildSubmitButton(ThemeData theme) {
-    return ElevatedButton(
-      onPressed: _submitImage,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
-        minimumSize: const Size(200, 40),
-      ),
-      child: const Text('Submit'),
-    );
-  }
-
-  Widget _buildResults(Size screenSize) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 15.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          if (_imageMoved)
-            IDBox(
-              loading: _idLoading,
-              loadingText: const TextSpan(
-                text: 'Identifying with PlantNet...',
-                style: TextStyle(color: Colors.black),
-              ),
-              matches: matchOptions,
-              onMatchSelected: onMatchSelected
-            ),
-          if (!_idLoading) ...[
-            const SizedBox(height: 10),
-            DetailBox(
-              loading: isLoading,
-              loadingText: TextSpan(
-                text: loadingText,
-                style: const TextStyle(color: Colors.black),
-              ),
-              detailDisplay: plantDetails != null
-                ? PlantDetailsWidget(details: plantDetails!)
-                : const SizedBox.shrink(),
-            ),
-          ],
         ],
       ),
     );
