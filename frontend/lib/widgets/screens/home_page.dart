@@ -8,7 +8,6 @@ import 'package:garden_glossary/models/id_match.dart';
 
 // 'Input' imports
 import 'package:garden_glossary/widgets/background_widget.dart';
-// import 'package:garden_glossary/widgets/image_container.dart';
 import 'package:garden_glossary/widgets/input/user_image_container.dart';
 import 'package:garden_glossary/widgets/input/input_controls.dart';
 import 'package:garden_glossary/services/image_picker_service.dart';
@@ -20,7 +19,6 @@ import 'package:garden_glossary/services/plant_identification_service.dart';
 import 'package:garden_glossary/services/plant_details_service.dart';
 import 'package:garden_glossary/widgets/results/match_image_container.dart';
 import 'package:garden_glossary/widgets/results/results_display.dart';
-// import 'package:garden_glossary/widgets/visual_effects/shimmer_effect.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -144,6 +142,7 @@ class HomePageState extends State<HomePage>
       matchOptions = [];
       selectedMatchIndex = 0;
       plantDetails = null;
+      source = null;
     });
   }
 
@@ -211,6 +210,7 @@ class HomePageState extends State<HomePage>
                           detailsLoading: isLoading,
                           loadingText: loadingText,
                           plantDetails: plantDetails,
+                          source: source,
                           enableStreaming: true,
                         ),
                       ),

@@ -18,5 +18,16 @@ env/
 # IDEs
 .idea/
 
-# Jupyter Notebook
-.ipynb_checkpoints/
+# Serverless Framework
+.serverless/
+node_modules/
+package-lock.json
+serverless.env.yml
+.env.yml
+.env.yaml
+credentials.yml
+.serverlessrc
+
+# AWS SAM
+.aws-sam/
+samconfig.toml

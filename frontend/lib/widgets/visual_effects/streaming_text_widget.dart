@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 class StreamingTextWidget extends StatefulWidget {
   final TextSpan fullText;
-  // final Duration streamDuration;
   final Duration characterDuration;
   final bool streaming;
   final VoidCallback? onStreamingComplete;
@@ -11,7 +10,6 @@ class StreamingTextWidget extends StatefulWidget {
   const StreamingTextWidget({
     super.key,
     required this.fullText,
-    // this.streamDuration = const Duration(milliseconds: 2000),
     this.characterDuration = const Duration(milliseconds: 5),
     this.streaming = false,
     this.onStreamingComplete,

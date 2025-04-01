@@ -1,5 +1,5 @@
 import os
-import json
+import sys
 import logging
 from typing import Optional, Literal
 from pydantic import Field, computed_field
@@ -20,8 +20,9 @@ class Settings(BaseSettings):
     LOG_FORMAT: str = "%(asctime)s - %(levelname)s - %(message)s"
 
     # Application settings with defaults
-    UPLOAD_DIR: str = "uploads"
+    UPLOAD_DIR: str = "/tmp/uploads"
     RHS_BASE_URL: str = "https://www.rhs.org.uk/plants/search-results?query="
+    RHS_SEARCH_API_URL: str = "https://lwapp-uks-prod-psearch-01.azurewebsites.net/api/v1/plants/search"
 
     # PlantNet API settings with defaults
     PROJECT: str = "all"
@@ -65,12 +66,44 @@ class Settings(BaseSettings):
             logger.error(f"Error retrieving AWS SSM Parameters: {e}")
     
     def setup_logging(self):
-        """Configure logging based on settings."""
-        logging.basicConfig(
-            level=getattr(logging, self.LOG_LEVEL),
-            format=self.LOG_FORMAT
-        )
-        return logging.getLogger()
+        """Configure logging for AWS Lambda and CloudWatch compatibility."""
+        # Remove existing handlers to prevent duplicate logging
+        logging.getLogger().handlers.clear()
+
+        # Create stream handler that writes to stdout
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter(self.LOG_FORMAT)
+        handler.setFormatter(formatter)
+
+        # Configure the root logger
+        root_logger = logging.getLogger()
+        root_logger.setLevel(getattr(logging, self.LOG_LEVEL))
+        root_logger.handlers = []
+        root_logger.addHandler(handler)
+        
+        # Set level for specific loggers to reduce overly verbose logs
+        logging.getLogger('urllib3').setLevel(logging.WARNING)
+        logging.getLogger('botocore').setLevel(logging.WARNING)
+        logging.getLogger('boto3').setLevel(logging.WARNING)
+
+        return root_logger
+
+def lambda_logging_context(logger, event=None, context=None):
+    """Add Lambda-specific context to logs."""
+    extra = {}
+    if event:
+        extra['lambda_event'] = str(event)
+    if context:
+        extra.update({
+            'function_name': context.function_name,
+            'function_version': context.function_version,
+            'invoked_function_arn': context.invoked_function_arn,
+            'memory_limit_in_mb': context.memory_limit_in_mb,
+            'aws_request_id': context.aws_request_id
+        })
+
+    # Create a logger adapter to include extra content
+    return logging.LoggerAdapter(logger, extra)
 
 @lru_cache
 def get_settings() -> Settings:

@@ -9,7 +9,7 @@ void main() async {
   await dotenv.load();
 
   // Set the environment
-  ApiConfig.setEnvironment(Environment.prodApprunner);
+  ApiConfig.setEnvironment(Environment.prodLambda);
   
   // Set preferred orientations
   WidgetsFlutterBinding.ensureInitialized();
