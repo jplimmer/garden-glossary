@@ -1,9 +1,13 @@
 import os
-import uvicorn
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.config import settings
+from mangum import Mangum
+
+from app.config import settings, lambda_logging_context
 from app.models import ErrorResponse
 from app.api.endpoints import plant_identification, plant_details_rhs, plant_details_llm
 from app.exceptions import PlantServiceException
@@ -11,8 +15,10 @@ import logging
 
 def create_application() -> FastAPI:
     # Configure logging globally
-    settings.setup_logging()
-    logger = logging.getLogger(__name__)
+    logger = settings.setup_logging()
+
+    # Create logger with possible Lambda context
+    context_logger = logging.getLogger(__name__)
 
     app = FastAPI(
         title="Garden Glossary API",
@@ -38,7 +44,13 @@ def create_application() -> FastAPI:
     # Register exception handler
     @app.exception_handler(PlantServiceException)
     async def plant_service_exception_handler(request: Request, exc: PlantServiceException):
-        logger.error(f"PlantServiceException:  {exc.error_code.value} - {exc.message}")
+        context_logger.error(
+            f"PlantServiceException:  {exc.error_code.value} - {exc.message}",
+            extra={
+                'error_code': exc.error_code,
+                'details': exc.details
+            }
+        )
         return JSONResponse(
             status_code=exc.status_code,
             content=ErrorResponse(
@@ -56,23 +68,32 @@ def create_application() -> FastAPI:
     # Add health-check endpoint
     @app.get("/health", tags=["api_health"])
     async def health_check():
+        context_logger.info("Health check endpoint called")
         return {"status": "healthy"}
     
     # Add environment endpoint:
     @app.get("/env", tags=["api_health"])
     async def env_check():
-        return {
+        env_info = {
             "AWS_EXECUTION_ENV": os.getenv("AWS_EXECUTION_ENV"),
             "DOCKER_ENVIRONMENT": os.getenv("DOCKER_ENVIRONMENT")
-            }
+        }
+        context_logger.info("Environment information retrieved", extra=env_info)
+        return env_info
 
     return app
 
 # Create FastAPI application
 app = create_application()
 
+# Create handler for AWS Lambda
+handler = Mangum(app)
+
 if __name__ == "__main__":
     # Run the server if executed directly (local development)
+    import uvicorn
+    logger = logging.getLogger(__name__)
+    logger.info("Starting local development server")
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port, reload=True)
 

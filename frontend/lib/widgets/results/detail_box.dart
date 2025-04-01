@@ -7,6 +7,7 @@ class DetailBox extends StatefulWidget {
   final bool loading;
   final TextSpan loadingText;
   final Widget detailDisplay;
+  final String? source;
   final bool streaming;
   final VoidCallback? onStreamingComplete;
 
@@ -15,6 +16,7 @@ class DetailBox extends StatefulWidget {
     required this.loading,
     required this.loadingText,
     required this.detailDisplay,
+    this.source,
     this.streaming = false,
     this.onStreamingComplete,
   });
@@ -85,8 +87,22 @@ class _DetailBoxState extends State<DetailBox> with SingleTickerProviderStateMix
               streaming: widget.streaming,
               onStreamingComplete: widget.onStreamingComplete,
             )
-          else
+          else ...[
             widget.detailDisplay,
+            if (widget.source != null)
+              Center(
+                child: Text.rich(
+                  TextSpan(
+                    text: 'Source: ${widget.source}',
+                    style: const TextStyle(
+                      color: Colors.black,
+                      height: 1.0,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ],
       ),
     );

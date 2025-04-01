@@ -1,19 +1,13 @@
 """Service to extract key cultivation details about a plant from the RHS website."""
 import asyncio
 from fastapi import status
+import requests
+import json
+from bs4 import BeautifulSoup
 from app.config import settings
-from app.utils import create_driver, CookieConsentHandler
 from app.models import Size, Soil, Position, PlantDetails
 from app.exceptions import PlantServiceErrorCode, PlantServiceException
 from typing import Optional, List
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import  (
-    StaleElementReferenceException, 
-    TimeoutException, 
-    WebDriverException
-    )
-from bs4 import BeautifulSoup
 import logging
 
 logger = logging.getLogger(__name__)
@@ -158,7 +152,7 @@ class PlantScraper:
             return []
         
         return [span.text.strip().replace(',', '') 
-                for span in parent.find('span')
+                for span in parent.find_all('span')
                 if span.text.strip()]
     
     def _extract_position(self, soup: BeautifulSoup) -> Optional[Position]:
@@ -289,149 +283,223 @@ class PlantScraper:
             return parent_div.contents[-1].strip() if parent_div else None
         return None
     
-    def get_plant_details(self, species: str) -> Optional[PlantDetails]:
+    def search_rhs_plants(self, species: str) -> Optional[PlantDetails]:
         """
-        Retrieve detailed information about a plant species from the RHS website.
+        Perform a search for a plant species on the RHS website.
 
         Args:
-            species (Str): The plant species name to search for.
+            species (str): Plant species name to search for.
 
         Returns:
-            Optional[PlantDetails]: Plant details if found, None otherwise
-        
+            List of search results (max 20).
+
         Raises:
-            PlantServiceException: If species is empty, network error occurs, or parsing fails.
+            PlantServiceException for various error conditions.
         """
-        try:
-            if not species:
-                raise PlantServiceException(
-                    error_code=PlantServiceErrorCode.VALIDATION_ERROR,
-                    message="Species name cannot be empty",
-                    status_code=status.HTTP_400_BAD_REQUEST
-                )
-
-            species_query = species.replace(" ", "%20").lower()
-            url = f"{self.base_url}{species_query}"
-
-            with create_driver() as (driver, wait):
-                try:
-                    logging.info(f"Using driver to get {url}")
-                    driver.get(url)
-                except WebDriverException as e:
-                    raise PlantServiceException(
-                        error_code=PlantServiceErrorCode.NETWORK_ERROR,
-                        message=f"Failed to access RHS website at {url}",
-                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                        details={"error": str(e)}
-                    )
-                
-                # Handle cookie consent
-                logger.info("Handling cookie consent...")
-                if not CookieConsentHandler.handle(driver):
-                    raise PlantServiceException(
-                        error_code=PlantServiceErrorCode.COOKIE_CONSENT_FAILED,
-                        message="Failed to handle cookie consent",
-                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE
-                    )
-                
-                # Scroll to bottom and find matching result
-                try:
-                    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                    search_results = wait.until(
-                        EC.presence_of_all_elements_located((
-                            By.CSS_SELECTOR, 'app-plant-search-list a.u-faux-block-link__overlay'
-                        ))
-                    )
-                except TimeoutException:
-                    raise PlantServiceException(
-                        error_code=PlantServiceErrorCode.NO_RESULTS_FOUND,
-                        message=f"No search results found for species '{species}'",
-                        status_code=status.HTTP_404_NOT_FOUND
-                    )
-
-                match_found = False
-
-                # Check for strict match and click
-                logging.info("Checking search results for matches...")
-                for result in search_results:
-                    if species.lower() == result.get_attribute('innerText').strip().lower():
-                        match_found = True
-                        logger.info(f"Match found for species: '{species}'")
-                        result.click()
-                        break
-                
-                # If no strict match, check for "species + (" and click
-                if not match_found:
-                    for result in search_results:
-                        # logger.info(f"{result.get_attribute('innerText')}")
-                        if f"{species.lower()} (" in result.get_attribute('innerText').lower():
-                            match_found = True
-                            logger.info(f"'Bracket match' found for species '{species}'")
-                            result.click()
-                            break
-                
-                # If no match, raise Exception
-                if not match_found:
-                    logger.warning(f"No match found for species: {species}")
-                    raise PlantServiceException(
-                        error_code=PlantServiceErrorCode.NO_RESULTS_FOUND,
-                        message=f"No matching search results found for '{species}'",
-                        status_code=status.HTTP_404_NOT_FOUND
-                    )
-                
-                # Check if page contains full details or only summary
-                full_details_selector = 'lib-plant-details-full'
-                summary_selector = 'lib-plant-details-summary'
-                try:
-                    logger.info("Looking for lib-plant-details elements...")
-                    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                    
-                    element = wait.until(
-                        EC.presence_of_element_located((
-                            By.CSS_SELECTOR,
-                            f"{full_details_selector}, {summary_selector}"
-                        ))
-                    )
-                    logger.info(f"Element found: {element.tag_name}")
-                    
-                    # If only summary found, raise Exception
-                    if element.tag_name == summary_selector:
-                        raise PlantServiceException(
-                            error_code=PlantServiceErrorCode.NO_RESULTS_FOUND,
-                            message=f"RHS has no detailed information for '{species}', only a brief summary",
-                            status_code=status.HTTP_404_NOT_FOUND
-                        )
-                    
-                    # Otherwise wait for full details to render
-                    wait.until(
-                        EC.visibility_of_element_located((By.CSS_SELECTOR, f"{full_details_selector}"))
-                    )
-                    logger.info("Full details visible - implicitly waiting 1 second")
-                    driver.implicitly_wait(1)
-
-                except TimeoutException:
-                    raise PlantServiceException(
-                        error_code=PlantServiceErrorCode.PARSING_ERROR,
-                        message="Timed out waiting for plant details element to load",
-                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
-
-                # Extract details
-                logging.info("Getting soup...")
-                soup = BeautifulSoup(driver.page_source, "lxml")
-                logging.info("Extracting details from soup...")
-                return self._extract_all_details(soup)
-            
-        except StaleElementReferenceException as e:
+        if not species:
             raise PlantServiceException(
-                error_code=PlantServiceErrorCode.PARSING_ERROR,
-                message="Page elements became stale during processing",
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+                error_code=PlantServiceErrorCode.VALIDATION_ERROR,
+                message="Species name cannot be empty",
+                status_code=status.HTTP_400_BAD_REQUEST
             )
         
+        headers = {
+            "accept": "application/json, text/plain, */*",
+            "content-type": "application/json",
+            "referrer": "https://www.rhs.org.uk/plants/search-form",
+            "referrerPolicy": "no-referrer-when-downgrade"
+        }
+
+        search_payload = {
+            "pageSize": 20,
+            "startFrom": 0,
+            "keywords": species
+        }
+        
+        try:
+            logging.info(f"Sending search request for {species}...")
+            response = requests.post(
+                settings.RHS_SEARCH_API_URL,
+                headers=headers,
+                data=json.dumps(search_payload),
+                timeout=10
+            )
+            response.raise_for_status()
+        except requests.Timeout as e:
+            raise PlantServiceException(
+                error_code=PlantServiceErrorCode.TIMEOUT_ERROR,
+                message=f"Search request timed out for {species}",
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                details={"error": str(e)}
+            )
+        except requests.RequestException as e:
+            raise PlantServiceException(
+                error_code=PlantServiceErrorCode.NETWORK_ERROR,
+                message=f"Failed to search RHS for {species}",
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                details={"error": str(e)}
+            )
+
+        search_results = response.json().get('hits', [])
+        if not search_results:
+            raise PlantServiceException(
+                error_code=PlantServiceErrorCode.PARSING_ERROR,
+                message="Empty response from RHS search API",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        
+        return search_results
+    
+    def find_match(self, species: str, search_results: List[dict]) -> str:
+        """
+        Find the best matching plant URL from search results.
+
+        Args:
+            species (str): Original search species.
+            search_results (List[dict]): Search results from RHS.
+
+        Returns:
+            str: Matched plant details URL
+
+        Raises:
+            PlantServiceException if no match found.
+        """
+        species_lower = species.lower()
+        logging.info("Checking search results for matches...")
+
+        match_found = False
+
+        # Check for exact match
+        for result in search_results:
+            name = BeautifulSoup(result.get('botanicalName'), "html.parser").get_text().lower()
+            if species_lower == name:
+                match_found = True
+                logging.info(f"Exact match found for '{name}'")
+                return self._get_match_link(result, name)
+
+        # If no exact match, check for "species + ("
+        if not match_found:
+            for result in search_results:
+                name = BeautifulSoup(result.get('botanicalName'), "html.parser").get_text().lower()
+                if f"{species_lower} (" in name:
+                    match_found = True
+                    logging.info(f"'Bracket match' found for '{name}'")
+                    return self._get_match_link(result, name)
+                
+        # If no match, raise Exception
+        if not match_found:
+            logger.warning(f"No match found for {species}")
+            raise PlantServiceException(
+                error_code=PlantServiceErrorCode.NO_RESULTS_FOUND,
+                message=f"No matching search results found for '{species}'",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+               
+    def _get_match_link(self, match: dict, name: str) -> str:
+        """Return RHS url for plant."""
+        id = match.get("id")
+        name = name.replace(" ", "-")
+        plant_url = f"https://www.rhs.org.uk/plants/{id}/{name}/details"
+        return plant_url
+
+    def rhs_plant_search(self, species: str) -> Optional[PlantDetails]:
+        """
+        Comprehensive plant search and details retrieval.
+
+        Args:
+            species (str): Plant species name to search for.
+
+        Returns:
+            PlantDetails or None.
+        """
+        try:
+            # Search for plant
+            search_results = self.search_rhs_plants(species)
+
+            # Check for match
+            match_url = self.find_match(species, search_results)
+
+            # Retrieve plant details
+            logging.info("Searching for plant details...")
+            return self.get_rhs_details(match_url, species)
+        except PlantServiceException:
+            raise
         except Exception as e:
-            if isinstance(e, PlantServiceException):
-                raise
+            logger.debug(f"Unexpected error in plant search: {e}")
+            raise PlantServiceException(
+                error_code=PlantServiceErrorCode.PARSING_ERROR,
+                message="Failed to process plant details",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                details={"error": str(e)}
+            )
+
+    def get_rhs_details(self, url: str, species: str = '') -> Optional[PlantDetails]:
+        """
+        Retrieve detailed plant information from a specific RHS plant details page.
+
+        Args:
+            url (str): The direct URL to the plant's details page on the RHS website.
+            species (str, optional): The name of the plant species, for context in error messages.
+
+        Returns:
+            Optional[PlantDetails]: Structured plant details if found, None otherwise.
+
+        Raises:
+            PlantServiceException: If there are issues accessing or parsing the plant details.
+        """
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
+            }
+
+            try:
+                logging.info(f"Requesting {url}")
+                response = requests.get(url=url, headers=headers, timeout=10)
+                response.encoding = "utf-8"
+            except requests.Timeout as e:
+                raise PlantServiceException(
+                    error_code=PlantServiceErrorCode.TIMEOUT_ERROR,
+                    message=f"Timed out when attempting to get {url}",
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    details={"error": str(e)}
+                )
+            except requests.RequestException as e:
+                raise PlantServiceException(
+                    error_code=PlantServiceErrorCode.NETWORK_ERROR,
+                    message=f"Failed to access RHS at {url}",
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    details={"error": str(e)}
+                )
+
+            logging.info("Extracting soup...")
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            # Check if page contains full details or only summary
+            logging.info("Looking for lib-plant-details elements...")
+            full_details_element = soup.select_one('lib-plant-details-full')
+            summary_element = soup.select_one('lib-plant-details-summary')
+
+            if full_details_element:
+                logging.info("Found full details element")
+                return self._extract_all_details(full_details_element)
+            
+            elif summary_element:
+                raise PlantServiceException(
+                    error_code=PlantServiceErrorCode.NO_RESULTS_FOUND,
+                    message=f"RHS has no detailed information for '{species}', only a brief summary",
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+           
+            else:
+                raise PlantServiceException(
+                    error_code=PlantServiceErrorCode.ELEMENT_ERROR,
+                    message=f"Plant details elements not found",
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+        except PlantServiceException:
+            raise
+        except Exception as e:
             logger.debug(f"Exception: str{e}")
             raise PlantServiceException(
                 error_code=PlantServiceErrorCode.PARSING_ERROR,
@@ -439,7 +507,7 @@ class PlantScraper:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 details={"error": str(e)}
             )
-            
+              
     def _extract_all_details(self, soup: BeautifulSoup) -> PlantDetails:
         """
         Extract all plant details from the parsed HTML.
@@ -483,7 +551,7 @@ class PlantDetailsRhsService:
         try:
             scraper = PlantScraper(base_url=settings.RHS_BASE_URL)
 
-            details = await asyncio.to_thread(scraper.get_plant_details, plant)
+            details = await asyncio.to_thread(scraper.rhs_plant_search, plant)
             
             if details is None:
                 raise PlantServiceException(

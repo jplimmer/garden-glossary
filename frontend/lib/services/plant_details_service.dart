@@ -72,6 +72,7 @@ mixin PlantDetailsStateMixin<T extends StatefulWidget> on State<T> {
   bool _detailLoading = false;
   String _detailLoadingText = '';
   PlantDetails? plantDetails;
+  String? source;
 
   bool get isLoading => _detailLoading;
   String get loadingText => _detailLoadingText;
@@ -111,6 +112,7 @@ mixin PlantDetailsStateMixin<T extends StatefulWidget> on State<T> {
       if (detailsRhs != null) {
         setState(() {
           plantDetails = detailsRhs;
+          source = 'RHS';
           _detailLoading = false;
         });
         return;
@@ -128,6 +130,7 @@ mixin PlantDetailsStateMixin<T extends StatefulWidget> on State<T> {
       if (detailsLlm != null) {
         setState(() {
           plantDetails = detailsLlm;
+          source = 'Claude';
           _detailLoading = false;
         });
         return;
@@ -149,3 +152,4 @@ mixin PlantDetailsStateMixin<T extends StatefulWidget> on State<T> {
     }
   }
 }
+

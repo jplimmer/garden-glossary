@@ -11,6 +11,7 @@ class ResultsDisplay extends StatefulWidget {
   final bool detailsLoading;
   final String loadingText;
   final PlantDetails? plantDetails;
+  final String? source;
   final bool enableStreaming;
   
   const ResultsDisplay({
@@ -21,6 +22,7 @@ class ResultsDisplay extends StatefulWidget {
     required this.detailsLoading,
     required this.loadingText,
     this.plantDetails,
+    this.source,
     this.enableStreaming = true,
   });
 
@@ -71,6 +73,7 @@ class _ResultsDisplayState extends State<ResultsDisplay> {
             detailDisplay: widget.plantDetails != null
               ? PlantDetailsWidget(details: widget.plantDetails!)
               : const SizedBox.shrink(),
+            source: widget.source,
             streaming: _isStreaming, //&& widget.enableStreaming && !widget.detailsLoading && widget.plantDetails != null,
             onStreamingComplete: () {
               setState(() {

@@ -1,5 +1,4 @@
 """Service to find key cultivation details about a plant using an LLM."""
-
 from typing import Dict
 import json
 from fastapi import status

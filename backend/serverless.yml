@@ -1,0 +1,41 @@
+service: garden-glossary-api
+
+provider:
+  name: aws
+  profile: serverless-deployment
+  role: arn:aws:iam::886436971643:role/ServerlessDeploymentRole
+  deploymentBucket:
+    name: serverless-deployment-bucket-jp
+  runtime: python3.12
+  stage: ${opt:stage, 'dev'}
+  region: eu-west-2
+  memorySize: 1024
+  timeout: 29
+
+functions:
+  app:
+    handler: src/app/main.handler
+    layers:
+      - {Ref: PythonRequirementsLambdaLayer}
+    events:
+      - http:
+          path: /
+          method: ANY
+      - http:
+          path: /{proxy+}
+          method: ANY
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    usePoetry: false
+    useStaticCache: false
+    useDownloadCache: false
+    layer: true
+    dockerizePip: true
+    slim: true
+    # dockerizePipCmds:
+    #   - pip install --upgrade pip
+    #   - pip install -r requirements.txt

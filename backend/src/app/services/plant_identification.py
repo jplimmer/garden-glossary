@@ -1,5 +1,5 @@
 """Service to identify plant species based on uploaded image, using the PlantNet API."""
-
+import os
 import requests
 import json
 from fastapi import status
@@ -28,8 +28,15 @@ class PlantIdentificationService:
         """
         try:
             with open(image_path, 'rb') as image_data:
-                files = [('images', ((image_path), (image_data)))]
+                file_header = image_data.read(10)
+                logging.debug(f"File header: {file_header.hex()}")
+                image_data.seek(0)
+
+                files = [('images', (image_path, image_data, 'image/jpeg'))]
                 data = {'organs': [organ.value]}
+
+                logging.debug(f"Files: {files}")
+                logging.debug(f"File size: {os.path.getsize(image_path) / 1024} KB")
 
                 logging.info("Calling PlantNet API...")
                 response = requests.post(
@@ -37,6 +44,7 @@ class PlantIdentificationService:
                     files=files, 
                     data=data
                 )
+                logging.debug(f"Response: {response}")
 
                 # If plant identified, return matches data
                 if response.status_code == 200:
@@ -76,7 +84,7 @@ class PlantIdentificationService:
                     raise PlantServiceException(
                         error_code=PlantServiceErrorCode.SERVICE_ERROR,
                         message=f"Unexpected error occurred: {response.status_code}",
-                        status_code=response.status_code
+                        status_code=response.status_code,
                     )
 
         except requests.RequestException as e:
