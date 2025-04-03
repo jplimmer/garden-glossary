@@ -3,9 +3,14 @@ import 'package:http/http.dart' as http;
 import 'package:garden_glossary/config/api_config.dart';
 
 class HealthCheckService {
-  String get _baseUrl => ApiConfig.current.baseUrl;
+  String get _baseUrl => ApiConfig.getInstance().baseUrl;
+  bool get _useMock => ApiConfig.getInstance().useMockAPI;
 
   Future<bool> checkHealth() async {  
+    if (_useMock) {
+      return true;
+    }
+    
     try {
       final response = await http.get(Uri.parse('$_baseUrl/health'));
 

@@ -35,7 +35,7 @@ class PlantAnthropicClient:
             "position": {{
                 "aspect": "Preferred facing direction",
                 "exposure": "Level of exposure needed",
-                "sun": "Sunlight requirements"
+                "sun": ["Sunlight requirements"]
             }},
             "cultivation_tips": "Brief tips about planting and care",
             "pruning": "Specific pruning instructions",

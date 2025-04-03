@@ -54,6 +54,46 @@ class PlantScraper:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    def _extract_field(self, panel: BeautifulSoup, field_name: str) -> Optional[str]:
+        """
+        Extract a single field value from a panel.
+
+        Args:
+            panel (BeautifulSoup): Panel containing the field.
+            field_name (str): Name of the field to extract.
+
+        Returns:
+            Optional[str]: Field value if found, None otherwise.
+        """
+        field_div = panel.find('h6', string=field_name)
+        if field_div:
+            parent_div = field_div.find_parent('div', class_='flag__body')
+            return parent_div.contents[-1].strip() if parent_div else None
+        return None
+    
+    def _extract_list_field(self, panel: BeautifulSoup, field_name: str) -> List[str]:
+        """
+        Extract a field with multiple strings from a panel.
+
+        Args:
+            panel (BeautifulSoup): Panel containing the field.
+            field_name (str): Name of the field to extract.
+
+        Returns:
+            List[str]: Field values if found, None otherwise.
+        """
+        field_h6 = panel.find('h6', string=field_name)
+        if not field_h6:
+            return []
+        
+        parent = field_h6.find_parent('div', class_='l-module')
+        if not parent:
+            return []
+        
+        return [span.text.strip().replace(',', '') 
+                for span in parent.find_all('span')
+                if span.text.strip()]
+    
     def _extract_size(self, soup: BeautifulSoup) -> Optional[Size]:
         """
         Extract plant size information from the parsed HTML.
@@ -131,30 +171,7 @@ class PlantScraper:
                 ph_levels=ph or []
             )
         return None
-    
-    def _extract_list_field(self, panel: BeautifulSoup, field_name: str) -> List[str]:
-        """
-        Extract a field with multiple strings from a panel.
-
-        Args:
-            panel (BeautifulSoup): Panel containing the field.
-            field_name (str): Name of the field to extract.
-
-        Returns:
-            List[str]: Field values if found, None otherwise.
-        """
-        field_h6 = panel.find('h6', string=field_name)
-        if not field_h6:
-            return []
-        
-        parent = field_h6.find_parent('div', class_='l-module')
-        if not parent:
-            return []
-        
-        return [span.text.strip().replace(',', '') 
-                for span in parent.find_all('span')
-                if span.text.strip()]
-    
+       
     def _extract_position(self, soup: BeautifulSoup) -> Optional[Position]:
         """
         Extract position and sunlight requirements from the parsed HTML.
@@ -174,11 +191,13 @@ class PlantScraper:
             return None
         
         position = Position()
-
+        
         # Extract sun info
-        sun_div = content.find('div', class_='flag--tiny')
-        if sun_div and sun_div.text:
-            position.sun = sun_div.text.strip()
+        sun_types = []
+        for flag in content.find_all('div', class_='flag--tiny'):
+            if flag.text.strip():
+                sun_types.append(flag.text.strip())
+        position.sun = sun_types
 
         # Extract aspect info
         aspect_p = content.find('p')
@@ -265,23 +284,6 @@ class PlantScraper:
                 full_text += '.'
 
         return full_text if full_text else None
-    
-    def _extract_field(self, panel: BeautifulSoup, field_name: str) -> Optional[str]:
-        """
-        Extract a single field value from a panel.
-
-        Args:
-            panel (BeautifulSoup): Panel containing the field.
-            field_name (str): Name of the field to extract.
-
-        Returns:
-            Optional[str]: Field value if found, None otherwise.
-        """
-        field_div = panel.find('h6', string=field_name)
-        if field_div:
-            parent_div = field_div.find_parent('div', class_='flag__body')
-            return parent_div.contents[-1].strip() if parent_div else None
-        return None
     
     def search_rhs_plants(self, species: str) -> Optional[PlantDetails]:
         """

@@ -85,7 +85,7 @@ class HealthCheckButtonState extends State<HealthCheckButton> {
         );
         break;
       case HealthStatus.healthy:
-        backgroundColor = Colors.green;
+        backgroundColor = theme.colorScheme.primary;
         iconColor = theme.colorScheme.onPrimary;
         icon = const Icon(Icons.check);
         break;

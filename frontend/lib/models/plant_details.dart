@@ -62,7 +62,7 @@ class Soil {
 }
 
 class Position {
-  final String sun;
+  final List<String> sun;
   final String aspect;
   final String exposure;
 
@@ -74,7 +74,7 @@ class Position {
 
   factory Position.fromJson(Map<String, dynamic> json) {
     return Position(
-      sun: json['sun'] as String,
+      sun: List<String>.from(json['sun']),
       aspect: json['aspect'] as String,
       exposure: json['exposure'] as String,
     );
