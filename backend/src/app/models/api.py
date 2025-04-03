@@ -97,7 +97,7 @@ class Soil(BaseModel):
     ph_levels: List[str]
 
 class Position(BaseModel):
-    sun: Optional[str] = Field(None, description="Sunlight requirements for plant")
+    sun: Optional[List[str]] = Field(None, description="Sunlight requirements for plant")
     aspect: Optional[str] = Field(None, description="Direction of sunlight plant should be exposed to")
     exposure: Optional[str] = Field(None, description="Shelter requirements for plant")
 
@@ -137,7 +137,7 @@ class PlantDetailResponse(BaseModel):
                         "ph_levels": ["Acid"]
                     },
                     "position": {
-                        "sun": "Full sun",
+                        "sun": ["Full sun"],
                         "aspect": "South-facing or West-facing",
                         "exposure": "Sheltered"
                     },

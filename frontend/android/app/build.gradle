@@ -39,6 +39,29 @@ android {
             signingConfig = signingConfigs.debug
         }
     }
+
+    flavorDimensions "environment"
+    productFlavors {
+        local {
+            dimension "environment"
+            applicationIdSuffix ".local"
+            resValue "string", "app_name", "Garden Glossary Local"
+        }
+        prod {
+            dimension "environment"
+            resValue "string", "app_name", "Garden Glossary"
+        }
+        dev {
+            dimension "environment"
+            applicationIdSuffix ".dev"
+            resValue "string", "app_name", "Garden Glossary Dev"
+        }
+        mock {
+            dimension "environment"
+            applicationIdSuffix ".mock"
+            resValue "string", "app_name", "Garden Glossary Mock"
+        }
+    }
 }
 
 flutter {

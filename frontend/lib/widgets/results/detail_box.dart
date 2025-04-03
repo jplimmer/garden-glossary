@@ -101,7 +101,18 @@ class _DetailBoxState extends State<DetailBox> with SingleTickerProviderStateMix
                     ),
                   ),
                 ),
-              ),
+              )
+            else
+              const Text.rich(
+                TextSpan(
+                  text: 'No details found',
+                  style: TextStyle(
+                    color: Colors.black,
+                    height: 1.0,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              )
           ],
         ],
       ),
@@ -152,7 +163,7 @@ class PlantDetailsWidget extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold)
         ),
         TextSpan(
-          text: 'Sunlight: ${details.position.sun}\n'
+          text: 'Sunlight: ${details.position.sun.join(", ")}\n'
           'Aspect: ${details.position.aspect}\n'
           'Exposure: ${details.position.exposure}\n'
         ),

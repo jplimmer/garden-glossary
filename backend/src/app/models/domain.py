@@ -65,14 +65,14 @@ class Position:
     Dataclass for 'Position' information on plant.
 
     Attributes:
-        sun (str): Type of sun exposure plant should grow in (e.g. 'Full sun')
+        sun (list): Type of sun exposure plant should grow in (e.g. 'Full sun')
         aspect (str): Direction of sunlight plant should be exposed to (e.g. 'West-facing')
         exposure (str): 
 
     Methods:
         to_dict: Convert information into Dict, raise PlantServiceException if error
     """
-    sun: Optional[str] = None
+    sun: Optional[List[str]] = None
     aspect: Optional[str] = None
     exposure: Optional[str] = None
 

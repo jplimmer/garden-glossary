@@ -5,6 +5,7 @@ import 'package:mime/mime.dart';
 import 'package:dio/dio.dart';
 
 import 'package:garden_glossary/config/api_config.dart';
+import 'package:garden_glossary/utils/logger.dart';
 import 'package:garden_glossary/models/id_match.dart';
 import 'package:garden_glossary/exceptions/exceptions.dart';
 import 'package:garden_glossary/services/mock_api_services.dart';
@@ -24,7 +25,8 @@ class PlantIdentificationService {
     };
   }
   
-  String get _baseUrl => ApiConfig.current.baseUrl;
+  String get _baseUrl => ApiConfig.getInstance().baseUrl;
+  bool get _useMock => ApiConfig.getInstance().useMockAPI;
 
   Future<List<IDMatch>> identifyPlant({
     required File imageFile,
@@ -32,29 +34,31 @@ class PlantIdentificationService {
     required BuildContext context,
   }) async {
     // Use Mock API service if enabled
-    if (ApiConfig.current.useMockAPI) {
+    if (_useMock) {
       Map<String, dynamic> mockMatches = await MockIdentificationService().fetchData();
       return _parseMatchOptions(mockMatches);
     }
     
     // Otherwise use real API service
     try {
+      late File postImage;
+
       // Cancel any previous request before making a new one
       cancelRequest();
 
-      late File postImage;
-      // Compress image
-      final compressedImage = await compressImage(imageFile);
+      // Check image size & compress image if needed
+      int imageFileSize = await imageFile.length();      
+      double scaleFactor = ApiConfig.getInstance().payloadLimit / (imageFileSize / 1024);
+      AppLogger.info('Payload limit is $scaleFactor x image size');
 
-      if (compressedImage != null) {
-        postImage = File(compressedImage.path);
+      if (scaleFactor < 1) {
+        scaleFactor = (scaleFactor * 100).floorToDouble() / 100;
+        postImage = await compressImage(imageFile, scaleFactor);
       } else {
         postImage = imageFile;
       }
 
-      debugPrint(imageFile.path);
-      debugPrint(postImage.path);
-      debugPrint('${lookupMimeType(postImage.path)}');
+      AppLogger.debug('File type: ${lookupMimeType(postImage.path)}');
       
       // Create POST request
       var formData = FormData.fromMap({
@@ -65,24 +69,22 @@ class PlantIdentificationService {
         'organ': organ,
       });
 
-      var payloadSize = _checkPayloadSize(formData);
-      debugPrint('Payload size: ${payloadSize.toStringAsFixed(2)} KB');
-
-      var contentLength = formData.length;
-      debugPrint('Dio payload size: $contentLength bytes (${(contentLength/1024).toStringAsFixed(2)} KB)');
-
-      debugPrint(_baseUrl);
+      AppLogger.info('Connecting to $_baseUrl ...');
       var response = await _dio.post(
         '$_baseUrl/api/v1/identify-plant/',
         options: Options(
-          headers: ApiConfig.current.defaultHeaders,
+          headers: ApiConfig.getInstance().defaultHeaders,
         ),
         data: formData,
         cancelToken: _cancelToken,
       );
 
-      debugPrint('identify-plant response code: ${response.statusCode}');
-      debugPrint('identify-plant response: $response');
+      if (postImage.path != imageFile.path) {
+        cleanupTempFiles(postImage);
+      }
+
+      AppLogger.debug('identify-plant response code: ${response.statusCode}');
+      AppLogger.debug('identify-plant response: $response');
       switch(response.statusCode) {
         case 200:
           return _parseMatchOptions(response.data);
@@ -98,19 +100,20 @@ class PlantIdentificationService {
           );
         default:
           // Handle unexpected status
-          debugPrint('Server error (case): ${response.statusMessage}');
+          AppLogger.error('Server error (case): ${response.statusMessage}');
           throw PlantIdentificationException('Server error: ${response.data}');
       }
     } on DioException catch (e) {
       if (e.response != null) {
-        debugPrint('Server error (Dio): ${e.message}');
+        AppLogger.error('Server error (Dio): ${e.message}');
         throw PlantIdentificationException('Server error: ${e.response?.data}');
       }
+      AppLogger.error('Error uploading image: ${e.message}');
       throw PlantIdentificationException('Error uploading image: ${e.message}');
     }
   }
  
-  Future<XFile?> compressImage(File file) async {
+  Future<File> compressImage(File file, double scaleFactor) async {
     try {
       final dir = Directory.systemTemp;
       final targetPath = '${dir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -118,40 +121,22 @@ class PlantIdentificationService {
       final compressedFile = await FlutterImageCompress.compressAndGetFile(
         file.absolute.path,
         targetPath,
-        quality: 80,
+        quality: (scaleFactor * 100).toInt(),
         format: CompressFormat.jpeg
       );
 
-      if (compressedFile != null) {
-          final bytes = await compressedFile.readAsBytes();
-          final image = await decodeImageFromList(bytes);
-
-          debugPrint('Compressed image -');
-          debugPrint('Path: ${compressedFile.path}');
-          debugPrint('Size: ${bytes.length} bytes');
-          debugPrint('Dimensions: ${image.width}x${image.height}');
+      if (compressedFile == null) {
+        AppLogger.warning('Compression returned null, using original file');
+        return file;
       }
-      return compressedFile;
+
+      return File(compressedFile.path);
     } catch (e) {
-      debugPrint('Image compression error: $e');
-      return null;
+      AppLogger.error('Image compression error: $e');
+      return file;
     }
   }
   
-  double _checkPayloadSize(FormData formData) {
-    int totalSize = 0;
-    
-    for (var file in formData.files) {
-      totalSize += file.value.length;
-    }
-
-    for (var field in formData.fields) {
-      totalSize += field.key.length + field.value.length;
-    }
-
-    return totalSize / 1024;
-  } 
-
   List<IDMatch> _parseMatchOptions(Map<String, dynamic> responseBody) {
     List<IDMatch> matchOptionsList = [];
     responseBody['matches'].forEach((key, value) {
@@ -169,6 +154,17 @@ class PlantIdentificationService {
     return matchOptionsList;
   }
 
+  void cleanupTempFiles(File file) {
+    if (file.path.contains('compressed_') && file.existsSync()) {
+      try {
+        file.deleteSync();
+        AppLogger.debug('Deleted temporary file: ${file.path}');
+      } catch (e) {
+        AppLogger.error('Error deleting temporary file: $e');
+      }
+    }
+  }
+  
   void cancelRequest() {
     if (!_cancelToken.isCancelled) {
       _cancelToken.cancel('Request cancelled.');
