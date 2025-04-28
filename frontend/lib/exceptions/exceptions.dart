@@ -1,6 +1,6 @@
-class PlantIdentificationException implements Exception {
+class PlantServiceException implements Exception {
   final String message;
-  const PlantIdentificationException(this.message);
+  const PlantServiceException(this.message);
 
   @override
   String toString() => message;

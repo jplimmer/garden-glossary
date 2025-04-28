@@ -1,10 +1,12 @@
 // Flutter imports
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:garden_glossary/exceptions/exceptions.dart';
 
 // Model imports
 import 'package:garden_glossary/models/organ.dart';
 import 'package:garden_glossary/models/id_match.dart';
+import 'package:garden_glossary/utils/logger.dart';
 
 // 'Input' imports
 import 'package:garden_glossary/widgets/background_widget.dart';
@@ -79,9 +81,7 @@ class HomePageState extends State<HomePage>
   // Function to submit selected photo to backend using PlantIdentificationService
   Future<void> _submitImage() async {
     if (_image == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an image first')),
-      );
+      _showErrorToUser('Please select an image first');
       return; 
     }
 
@@ -107,15 +107,13 @@ class HomePageState extends State<HomePage>
     } catch (e) {
       if (mounted) {
         _reset(resetImage: false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
-      }
+        _showErrorToUser(e);      }
     }
   }
   
   // Function to update selected match index
   void onMatchSelected(int index) {
+    AppLogger.info('New match selected: index $index');
     setState(() {
       selectedMatchIndex = index;
     });
@@ -128,6 +126,32 @@ class HomePageState extends State<HomePage>
     await getDetails(plant);
   }
 
+  // Function to display errors to user
+  void _showErrorToUser(dynamic error) {
+    String message = 'Something went wrong! Please try again.';
+
+    if (error is String) {
+      message = error;
+    } else if (error is PlantServiceException) {
+      message = error.toString();
+    } else if (error is SocketException) {
+      message = 'Internet connection issue. Please check your network and try again.';
+    }
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.black,
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'Dismiss',
+          textColor: Colors.white,
+          onPressed: () {},
+        ),
+      ),
+    );
+  }
+  
   // Function to reset app to home page (image reset is optional)
   void _reset({bool resetImage = true}) {
     _plantIdService.cancelRequest();

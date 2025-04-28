@@ -15,9 +15,9 @@ import logging
 
 def create_application() -> FastAPI:
     # Configure logging globally
-    logger = settings.setup_logging()
+    settings.setup_logging()
 
-    # Create logger with possible Lambda context
+    # Create loggers with possible Lambda context
     context_logger = logging.getLogger(__name__)
 
     app = FastAPI(

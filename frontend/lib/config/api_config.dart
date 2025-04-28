@@ -16,7 +16,7 @@ class ApiConfig {
     this.defaultHeaders = const {'Content-Type': 'application/json'},
     int? customPayloadLimit,
   }) : payloadLimit = customPayloadLimit ??
-      int.tryParse(dotenv.env['PAYLOAD_LIMIT'] ?? '') ??
+      int.tryParse(dotenv.env['PAYLOAD_LIMIT_KB'] ?? '') ??
       _defaultPayloadLimit;
 
   // Singleton instance
@@ -38,7 +38,7 @@ class ApiConfig {
   // Factory constructor that returns singelton instance
   factory ApiConfig.getInstance() {
     if (_instance == null) {
-      throw StateError('ApiConfig not initialized Call APpiConfig.initialize() first.');
+      throw StateError('ApiConfig not initialized. Call ApiConfig.initialize() first.');
     }
     return _instance!;
   }
@@ -89,10 +89,10 @@ class ApiConfig {
   static String _getBaseUrl(Environment env) {
     switch (env) {
       case Environment.local:
-        return dotenv.env['LOCAL_API_URL'] ?? 'http://10.0.2.2:8000';
+        return dotenv.env['API_URL'] ?? 'http://10.0.2.2:8000';
       case Environment.dev:
       case Environment.prod:
-        final url = dotenv.env['PROD_API_URL'];
+        final url = dotenv.env['API_URL'];
         if (url == null || url.isEmpty) {
           throw Exception('Missing or invalid PROD_API_URL environment variable');
         }
