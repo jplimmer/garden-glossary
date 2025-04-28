@@ -29,22 +29,22 @@ class PlantIdentificationService:
         try:
             with open(image_path, 'rb') as image_data:
                 file_header = image_data.read(10)
-                logging.debug(f"File header: {file_header.hex()}")
+                logger.debug(f"File header: {file_header.hex()}")
                 image_data.seek(0)
 
                 files = [('images', (image_path, image_data, 'image/jpeg'))]
                 data = {'organs': [organ.value]}
 
-                logging.debug(f"Files: {files}")
-                logging.debug(f"File size: {os.path.getsize(image_path) / 1024} KB")
+                logger.debug(f"Files: {files}")
+                logger.debug(f"File size: {os.path.getsize(image_path) / 1024} KB")
 
-                logging.info("Calling PlantNet API...")
+                logger.info("Calling PlantNet API...")
                 response = requests.post(
                     url=settings.PLANTNET_ENDPOINT, 
                     files=files, 
                     data=data
                 )
-                logging.debug(f"Response: {response}")
+                logger.debug(f"Response: {response}")
 
                 # If plant identified, return matches data
                 if response.status_code == 200:
@@ -62,7 +62,7 @@ class PlantIdentificationService:
                         for i, result in enumerate(results)
                     }
 
-                    logging.info(f"PlantNet matches: {matches}")
+                    logger.info(f"PlantNet matches: {matches}")
                     return {'matches': matches}
                 
                 # Handle 'Species Not Found'
@@ -100,6 +100,8 @@ class PlantIdentificationService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         except Exception as e:
+            if isinstance(e, PlantServiceException):
+                raise
             raise PlantServiceException(
                 error_code=PlantServiceErrorCode.SERVICE_ERROR,
                 message=str(e),

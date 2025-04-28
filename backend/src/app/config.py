@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # Logging configuration
     LOG_LEVEL: LogLevel = Field(default="INFO")
-    LOG_FORMAT: str = "%(asctime)s - %(levelname)s - %(message)s"
+    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
     # Application settings with defaults
     UPLOAD_DIR: str = "/tmp/uploads"
@@ -67,9 +67,6 @@ class Settings(BaseSettings):
     
     def setup_logging(self):
         """Configure logging for AWS Lambda and CloudWatch compatibility."""
-        # Remove existing handlers to prevent duplicate logging
-        logging.getLogger().handlers.clear()
-
         # Create stream handler that writes to stdout
         handler = logging.StreamHandler(sys.stdout)
         formatter = logging.Formatter(self.LOG_FORMAT)
@@ -78,13 +75,15 @@ class Settings(BaseSettings):
         # Configure the root logger
         root_logger = logging.getLogger()
         root_logger.setLevel(getattr(logging, self.LOG_LEVEL))
-        root_logger.handlers = []
-        root_logger.addHandler(handler)
+
+        # Ensure handler is the only one on the root logger
+        root_logger.handlers = [handler]
         
         # Set level for specific loggers to reduce overly verbose logs
         logging.getLogger('urllib3').setLevel(logging.WARNING)
         logging.getLogger('botocore').setLevel(logging.WARNING)
         logging.getLogger('boto3').setLevel(logging.WARNING)
+        logging.getLogger('python_multipart.multipart').setLevel(logging.WARNING)
 
         return root_logger
 

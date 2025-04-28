@@ -35,9 +35,11 @@ async def identify_plant(
     file_saved = False
     try:
         # Save the uploaded file
+        logger.debug('Saving file...')
         with open(file_location, "wb+") as file_object:
             file_object.write(await file.read())
         file_saved = True
+        logger.debug('File saved.')
         
         # Identify plant using PlantNet API
         service = PlantIdentificationService()
