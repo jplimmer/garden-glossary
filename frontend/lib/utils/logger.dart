@@ -3,12 +3,25 @@ import 'package:garden_glossary/config/api_config.dart';
 import 'package:logging/logging.dart';
 
 class AppLogger {
-  static final Logger _logger = Logger('AppLogger');
+  static final Map<String, Logger> _loggers = {};
   static bool _initialized = false;
+  static const Environment _defaultEnvironment = Environment.dev;
 
-  // Initialise logger based on environment
+  /// Gets or creates a named logger for a specific class/file
+  ///
+  /// Example: 
+  /// ```dart
+  /// final _logger = AppLogger.getLogger('UserRepository');
+  /// _logger.info('User data fetched');
+  /// ```
+  static Logger getLogger(String name) {
+    // Creates logger with default environment if environment not yet initialised
+    return _loggers.putIfAbsent(name, () => Logger(name));
+  }
+  
+  /// Initialises the logging system based on environment
   static void init(Environment environment) {
-    if (_initialized) return;
+    if (_initialized && environment == _defaultEnvironment) return;
 
     // Set up logging level based on environment
     switch(environment) {
@@ -16,7 +29,7 @@ class AppLogger {
         Logger.root.level = Level.WARNING;
         break;
       case Environment.dev:
-        Logger.root.level = Level.INFO;
+        Logger.root.level = Level.FINE;
         break;
       case Environment.local:
       case Environment.mock:
@@ -26,9 +39,12 @@ class AppLogger {
 
     // Configure logging output
     Logger.root.onRecord.listen((record) {
+      // Include source name in the log output
+      final loggerName = record.loggerName;
+      
       // In debug mode, debugPrint to console
       if (!kReleaseMode) {
-        debugPrint('${record.level.name}: ${record.time}: ${record.message}');
+        debugPrint('${record.time}: $loggerName: ${record.level.name}: ${record.message}');
         if (record.error != null) {
           debugPrint('Error: ${record.error}');
         }
@@ -37,32 +53,38 @@ class AppLogger {
         }
       } else if (record.level >= Level.WARNING) {
         // In release mode, only debugPrint warnings and errors
-        debugPrint('${record.level.name}: ${record.message}');
+        debugPrint('${record.time}: $loggerName: ${record.level.name}: ${record.message}');
       }
     });
 
     _initialized = true;
-  }
 
-  // Logging methods
-  static void verbose(String message) {
-    _logger.fine(message);
+    final systemLogger = getLogger('AppLogger');
+    systemLogger.info('Logging system initialised with environment "$environment"');
   }
+}
 
-  static void debug(String message) {
-    _logger.fine(message);
+// Extension methods for easier logging with named loggers
+extension LoggerExtensions on Logger {
+  /// Logs a verbose message (maps to fine level)
+  void verbose(String message) {
+    fine(message);
   }
-
-  static void info(String message) {
-    _logger.info(message);
+  /// Logs a debug message (maps to fine level)
+  void debug(String message) {
+    fine(message);
   }
-
-  static void warning(String message, [Object? error, StackTrace? stackTrace]) {
-    _logger.warning(message, error, stackTrace);
+  /// Logs and info message
+  void info(String message) {
+    info(message);
   }
-
-  static void error(String message, [Object? error, StackTrace? stackTrace]) {
-    _logger.severe(message, error, stackTrace);
+  /// Logs a warning message with optional error object and stack trace
+  void warning(String message, [Object? error, StackTrace? stackTrace]) {
+    warning(message, error, stackTrace);
+  }
+  /// Logs an error message with optional error object and stack trace
+  void error(String message, [Object? error, StackTrace? stackTrace]) {
+    severe(message, error, stackTrace);
   }
 }
 

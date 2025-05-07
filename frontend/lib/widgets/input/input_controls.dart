@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:garden_glossary/models/organ.dart';
+import 'package:garden_glossary/widgets/input/organ_picker.dart';
 
 class InputControls extends StatefulWidget {
   final VoidCallback onCameraPressed;
@@ -73,33 +73,19 @@ class InputControlsState extends State<InputControls> {
     );
   }
 
-  Widget _buildOrganPicker() {
-    final initialIndex = Organ.values.indexOf(selectedOrgan);
-    final FixedExtentScrollController scrollController = FixedExtentScrollController(initialItem: initialIndex);
-    
-    return Row(
+  Widget _buildOrganPicker() {   
+    return const Row(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Text(
+        Text(
           'Organ:',
           style: TextStyle(fontSize: 18),
         ),
         SizedBox(
           width: 110,
           height: 80,
-          child: CupertinoPicker(
-            scrollController: scrollController,
-            itemExtent: 28.0,
-            onSelectedItemChanged: (int index) {
-              setState(() {
-                selectedOrgan = Organ.values[index];
-              });
-            },
-            children: Organ.values.map((organ) {
-              return Center(child: Text(organ.toString().split('.').last));
-            }).toList(),
-          ),
+          child: OrganPicker(),
         ),
       ],
     );

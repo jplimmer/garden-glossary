@@ -1,4 +1,4 @@
-package com.example.garden_glossary
+package com.jamesplimmer.gardenglossary
 
 import io.flutter.embedding.android.FlutterActivity
 
