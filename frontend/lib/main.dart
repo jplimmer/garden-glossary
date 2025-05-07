@@ -1,16 +1,28 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:garden_glossary/config/api_config.dart';
 import 'package:garden_glossary/utils/logger.dart';
 import 'package:garden_glossary/widgets/screens/home_page.dart';
 
+final _logger = AppLogger.getLogger('MainApp');
+
 // Common initialisation method for different flavours
 Future<void> mainCommon(Environment environment) async {
   try {
+    // Framework error handling
+    FlutterError.onError = (FlutterErrorDetails details) {
+      _logger.error('Flutter error: ${details.exception}',
+        details.exception, details.stack);
+      FlutterError.presentError(details);
+    };
+    
+    // Intialise Flutter binding
     WidgetsFlutterBinding.ensureInitialized();
 
+    // Initialise logger with current environment
     AppLogger.init(environment);
-    AppLogger.info('App starting with environment "$environment"');
+    _logger.info('App starting with environment "$environment"');
     
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -19,14 +31,14 @@ Future<void> mainCommon(Environment environment) async {
 
     await ApiConfig.initialize(environment);
 
-    runApp(MyApp(environment: environment));
+    runApp(ProviderScope(child: MyApp(environment: environment)));
   } catch (e) {
-    AppLogger.error('Initialization error: $e');
+    _logger.error('Initialization error: $e');
     runApp(ErrorApp(error: e.toString()));
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   final Environment environment;
   const MyApp({
     super.key,
@@ -34,7 +46,7 @@ class MyApp extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     Color seedColor;
     String titleSuffix = '';
 
@@ -63,7 +75,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const HomePage(),
+      home: HomePage(),
     );
   }
 }

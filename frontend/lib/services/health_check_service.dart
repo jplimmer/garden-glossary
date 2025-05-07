@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:garden_glossary/config/api_config.dart';
+import 'package:garden_glossary/utils/logger.dart';
+
+final _logger = AppLogger.getLogger('HealthCheckService');
 
 class HealthCheckService {
   String get _baseUrl => ApiConfig.getInstance().baseUrl;
@@ -8,6 +11,7 @@ class HealthCheckService {
 
   Future<bool> checkHealth() async {  
     if (_useMock) {
+      _logger.info('Mock health check: healthy');
       return true;
     }
     
@@ -16,6 +20,7 @@ class HealthCheckService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        _logger.info('Health check response: $data');
         return data['status'] == 'healthy';
       }
       return false;

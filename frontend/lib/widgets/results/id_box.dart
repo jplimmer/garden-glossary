@@ -1,88 +1,39 @@
 import 'package:flutter/material.dart';
-import 'package:garden_glossary/models/id_match.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:garden_glossary/providers/plant_services_provider.dart';
+import 'package:garden_glossary/providers/ui_state_provider.dart';
+import 'package:garden_glossary/widgets/visual_effects/pulsing_text_widget.dart';
 
-class IDBox extends StatefulWidget {
-  final bool loading;
-  final TextSpan loadingText;
-  final List<IDMatch> matches;
-  final int initialSelectedIndex;
-  final Function(int) onMatchSelected;
-
+class IDBox extends ConsumerWidget {
+  final String loadingText;
+  
   const IDBox({
     super.key,
-    required this.loading,
-    required this.loadingText,
-    required this.matches,
-    required this.onMatchSelected,
-    this.initialSelectedIndex = 0,
+    this.loadingText = 'Identifying with PlantNet...',
   });
 
   @override
-  State<IDBox> createState() => _IDBoxState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final plantServicesState = ref.watch(plantServicesProvider);
+    final uiState = ref.watch(uiStateProvider);
 
-class _IDBoxState extends State<IDBox> with SingleTickerProviderStateMixin {
-  bool _isExpanded = false;
-  late int _selectedIndex;
-  late AnimationController _controller;
-  late Animation<double> _animation;
-  
+    bool isLoading = plantServicesState.idState == IdentificationState.loading;
+    bool loaded = plantServicesState.idState == IdentificationState.success;
+    bool isError = plantServicesState.idState == IdentificationState.error;
+    bool isExpanded = uiState.isIDBoxExpanded;
+    int selectedIndex = plantServicesState.selectedMatchIndex;
 
-  @override
-  void initState() {
-    super.initState();
-    _selectedIndex = widget.initialSelectedIndex;
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 700),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    _animation = Tween<double>(begin: 0.3, end: 1.0).animate(_controller);
-  }
-
-  void _toggleExpanded() {
-    setState(() {
-      _isExpanded = !_isExpanded;
-    });
-  }
-
-  _selectOption(int index) {
-    setState(() {
-      _selectedIndex = index;
-      _isExpanded = false;
-    });
-    widget.onMatchSelected(index);
-  }
-
-  @override
-  void didUpdateWidget(covariant IDBox oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.loading) {
-      if (!_controller.isAnimating) {
-        _controller.repeat(reverse: true);
-      }
-    } else {
-      _controller.stop();
-      _controller.value = 1;
-    }
-  }
-  
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: widget.loading ? null: _toggleExpanded,
+      onTap: isLoading 
+        ? null 
+        : ref.read(uiStateProvider.notifier).toggleIDBoxExpanded,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOut,
         padding: const EdgeInsets.all(15.0),
         decoration: BoxDecoration(
-          color: Colors.lightGreen[50],
+          color: theme.cardColor,
           border: Border.all(color: Colors.black, width: 1.0),
           borderRadius: BorderRadius.circular(10.0),
           boxShadow: [
@@ -100,29 +51,40 @@ class _IDBoxState extends State<IDBox> with SingleTickerProviderStateMixin {
             Row(
               children: [
                 Expanded(
-                  child: widget.loading
-                    ? FadeTransition(
-                      opacity: _animation,
-                      child: RichText(text: widget.loadingText)
+                  child: (!loaded)
+                  ? PulsingText(
+                    text: TextSpan(
+                      text: loadingText,
+                      style: const TextStyle(color: Colors.black),
+                    ),
                     )
-                    : widget.matches[_selectedIndex]
-                  ),
-                if (!widget.loading)
+                  : plantServicesState.matches[selectedIndex],
+                  // : (isError)
+                  //   ? const Text(
+                  //     'An error occurred.',
+                  //     style: TextStyle(color: Colors.black),
+                  //   )
+                  //   : plantServicesState.matches[selectedIndex],
+                ),
+                if (loaded)
                   Icon(
-                    _isExpanded ? Icons.expand_less : Icons.expand_more,
+                    isExpanded ? Icons.expand_less : Icons.expand_more,
                   ),
               ],
             ),
-            if (!widget.loading && _isExpanded) ...[
+            if (!isLoading && !isError && isExpanded) ...[
               const SizedBox(height: 8),
               const Divider(),
-              ... widget.matches.asMap().entries.map((entry) {
+              ... plantServicesState.matches.asMap().entries.map((entry) {
                 final index = entry.key;
                 final match = entry.value;
-                if (index == _selectedIndex) return const SizedBox.shrink();
+                if (index == selectedIndex) return const SizedBox.shrink();
 
                 return InkWell(
-                  onTap: () => _selectOption(index),
+                  onTap: () {
+                    ref.read(plantServicesProvider.notifier).selectMatch(index);
+                    ref.read(uiStateProvider.notifier).toggleIDBoxExpanded();
+                  },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 10.0),
                     child: match,

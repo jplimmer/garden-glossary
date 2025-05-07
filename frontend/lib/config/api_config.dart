@@ -13,11 +13,11 @@ class ApiConfig {
   ApiConfig._({
     required this.environment,
     required this.baseUrl,
-    this.defaultHeaders = const {'Content-Type': 'application/json'},
+    required this.defaultHeaders,
     int? customPayloadLimit,
   }) : payloadLimit = customPayloadLimit ??
-      int.tryParse(dotenv.env['PAYLOAD_LIMIT_KB'] ?? '') ??
-      _defaultPayloadLimit;
+        int.tryParse(dotenv.env['PAYLOAD_LIMIT_KB'] ?? '') ??
+        _defaultPayloadLimit;
 
   // Singleton instance
   static ApiConfig? _instance;
@@ -68,7 +68,11 @@ class ApiConfig {
     } catch (e) {
       if (kReleaseMode) {
         // In release mode, try fallback to default .env file
-        await dotenv.load(fileName: '.env');
+        try {
+          await dotenv.load(fileName: '.env');
+        } catch (fallbackError) {
+          throw Exception('Failed to load environment configuration: $fallbackError');
+        }
       } else {
         rethrow;
       }
@@ -78,28 +82,34 @@ class ApiConfig {
     _instance = ApiConfig._(
       environment: env,
       baseUrl: _getBaseUrl(env),
-      defaultHeaders: {
-        'Content-Type': 'application/json',
-        'X-Api-Version': dotenv.env['API_VERSION'] ?? '1.0',
-        'X-App-Environment': env.toString().split('.').last,
-      },
+      defaultHeaders: _getDefaultHeaders(env),
     );
   }
 
   static String _getBaseUrl(Environment env) {
-    switch (env) {
-      case Environment.local:
-        return dotenv.env['API_URL'] ?? 'http://10.0.2.2:8000';
-      case Environment.dev:
-      case Environment.prod:
-        final url = dotenv.env['API_URL'];
-        if (url == null || url.isEmpty) {
-          throw Exception('Missing or invalid PROD_API_URL environment variable');
-        }
-        return url;
-      case Environment.mock:
-        return 'mock://api.example.com';
+    const configKey = 'API_URL';
+    final url = dotenv.env[configKey];
+
+    if (url == null || url.isEmpty) {
+      switch (env) {
+        case Environment.local:
+          return 'http://10.0.2.2:8000';
+        case Environment.mock:
+          return 'mock://api.example.com';
+        default:
+          throw Exception('Missing or invalid $configKey environment variable');
+      }
     }
+
+    return url;
+  }
+
+  static Map<String, String> _getDefaultHeaders(Environment env) {
+    return {
+      'Content-Type': 'application/json',
+      'X-Api-Version': dotenv.env['API_VERSION'] ?? '1.0',
+      'X-App-Environment': env.toString().split('.').last,
+    };
   }
 
   // Reset instance (for testing)

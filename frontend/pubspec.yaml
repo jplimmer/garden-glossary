@@ -1,5 +1,5 @@
 name: garden_glossary
-description: "Front-end for a mobile application that identifies a plant photo and returns key information about the plant from RHS."
+description: "Front-end for a mobile application that identifies a plant photo and returns key information about the plant from RHS or Anthropic's Claude."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 version: 1.0.0+1
@@ -21,6 +21,11 @@ dependencies:
   flutter_image_compress: ^2.4.0
   mime: ^2.0.0
   logging: ^1.3.0
+  shared_preferences: ^2.5.3
+  flutter_riverpod: ^2.6.1
+  path: ^1.9.1
+  path_provider: ^2.1.5
+  permission_handler: ^12.0.0+1
 
 dev_dependencies:
   flutter_test:

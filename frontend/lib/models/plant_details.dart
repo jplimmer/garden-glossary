@@ -1,3 +1,5 @@
+import 'package:garden_glossary/exceptions/exceptions.dart';
+
 class PlantDetails {
   final PlantSize size;
   final String hardiness;
@@ -16,14 +18,30 @@ class PlantDetails {
   });
 
   factory PlantDetails.fromJson(Map<String, dynamic> json) {
-    return PlantDetails(
-      size: PlantSize.fromJson(json['size']),
-      hardiness: json['hardiness'] as String,
-      soil: Soil.fromJson(json['soil']),
-      position: Position.fromJson(json['position']),
-      cultivationTips: json['cultivation_tips'] as String,
-      pruning: json['pruning'] as String,
-    );
+    try {
+      return PlantDetails(
+        size: _parseField('size', () => PlantSize.fromJson(json['size'])),
+        hardiness: _parseField('hardiness', () => json['hardiness'] as String),
+        soil: _parseField('soil', () => Soil.fromJson(json['soil'])),
+        position: _parseField('position', () => Position.fromJson(json['position'])),
+        cultivationTips: _parseField('cultivation_tips', () => json['cultivation_tips'] as String),
+        pruning: _parseField('pruning', () => json['pruning'] as String),
+      );
+    } catch (e) {
+      if (e is JSONParseException) {
+        rethrow;
+      }
+      throw JSONParseException('Error in PlantDetails.fromJSON', e, json);
+    }
+  }
+
+  // Helper function to parse individual fields for error-handling purposes
+  static T _parseField<T>(String fieldName, T Function() parser) {
+    try {
+      return parser();
+    } catch (e) {
+      throw JSONParseException('Error parsing field: "$fieldName"', e);
+    }
   }
 }
 

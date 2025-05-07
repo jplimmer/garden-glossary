@@ -1,70 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:garden_glossary/providers/settings_provider.dart';
+import 'package:garden_glossary/providers/plant_services_provider.dart';
+import 'package:garden_glossary/providers/ui_state_provider.dart';
 import 'package:garden_glossary/models/plant_details.dart';
 import 'package:garden_glossary/utils/text_utils.dart';
+import 'package:garden_glossary/widgets/visual_effects/pulsing_text_widget.dart';
 import 'package:garden_glossary/widgets/visual_effects/streaming_text_widget.dart';
 
-class DetailBox extends StatefulWidget {
-  final bool loading;
-  final TextSpan loadingText;
-  final Widget detailDisplay;
-  final String? source;
-  final bool streaming;
-  final VoidCallback? onStreamingComplete;
-
+class DetailBox extends ConsumerWidget {
   const DetailBox({
     super.key,
-    required this.loading,
-    required this.loadingText,
-    required this.detailDisplay,
-    this.source,
-    this.streaming = false,
-    this.onStreamingComplete,
   });
 
   @override
-  State<DetailBox> createState() => _DetailBoxState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch providers to rebuild when they change
+    final theme = Theme.of(context);
+    final settings = ref.watch(settingsProvider);
+    final plantServicesState = ref.watch(plantServicesProvider);
 
-class _DetailBoxState extends State<DetailBox> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation; 
-  
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 700),
-      vsync: this,
-    )..repeat(reverse: true);
+    bool isLoading = plantServicesState.detailsState == DetailsFetchState.loading;
+    final bool enableTextStreaming = plantServicesState.detailsState == DetailsFetchState.success && settings.textStreamingEffect;
 
-    _animation = Tween<double>(begin: 0.3, end: 1.0).animate(_controller);
-  }
-
-  @override
-  void didUpdateWidget(covariant DetailBox oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.loading) {
-      if (!_controller.isAnimating) {
-        _controller.repeat(reverse: true);
-      }
-    } else if (_controller.isAnimating) {
-      _controller.stop();
-      _controller.value = 1;
+    if (enableTextStreaming) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.watch(uiStateProvider.notifier).startTextStreaming();
+      });
     }
-  }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(15.0),
       decoration: BoxDecoration(
-        color: Colors.lightGreen[50],
+        color: theme.cardColor,
         border: Border.all(color: Colors.black, width: 1.0),
         borderRadius: BorderRadius.circular(10.0),
       ),
@@ -72,48 +40,51 @@ class _DetailBoxState extends State<DetailBox> with SingleTickerProviderStateMix
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (widget.loading)
-            FadeTransition(
-              opacity: _animation,
-              child: RichText(
-                text: widget.loadingText,
+          if (isLoading)
+            PulsingText(
+              text: TextSpan(
+                text: plantServicesState.detailsLoadingText,
+                style: const TextStyle(color: Colors.black),
               ),
             )
-          else if (widget.streaming)
+          else if (plantServicesState.details != null) ...[
             StreamingTextWidget(
-              fullText: widget.detailDisplay is PlantDetailsWidget
-                ? (widget.detailDisplay as PlantDetailsWidget).getFullTextSpan()
-                : const TextSpan(text: ''),
-              streaming: widget.streaming,
-              onStreamingComplete: widget.onStreamingComplete,
-            )
-          else ...[
-            widget.detailDisplay,
-            if (widget.source != null)
-              Center(
-                child: Text.rich(
-                  TextSpan(
-                    text: 'Source: ${widget.source}',
-                    style: const TextStyle(
-                      color: Colors.black,
-                      height: 1.0,
-                      fontStyle: FontStyle.italic,
+              fullText: PlantDetailsWidget(details: plantServicesState.details!).getFullTextSpan(),
+              streaming: enableTextStreaming,
+              onStreamingComplete: () => ref.read(uiStateProvider.notifier).stopTextStreaming(),
+            ),
+            Consumer(
+              builder: (context, ref, _) {
+                final uiState = ref.watch(uiStateProvider);
+                if (plantServicesState.detailsSource != null && !uiState.isTextStreaming) {
+                  return Center(
+                    child: Text.rich(
+                      TextSpan(
+                        text: 'Source: ${plantServicesState.detailsSource}',
+                        style: const TextStyle(
+                          color: Colors.black,
+                          height: 1.0,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
                     ),
-                  ),
+                  );
+                }
+                return const SizedBox.shrink();
+              }
+            ),   
+          ]
+          else
+            const Text.rich(
+              TextSpan(
+                text: 'No details found',
+                style: TextStyle(
+                  color: Colors.black,
+                  height: 1.0,
+                  fontStyle: FontStyle.italic,
                 ),
-              )
-            else
-              const Text.rich(
-                TextSpan(
-                  text: 'No details found',
-                  style: TextStyle(
-                    color: Colors.black,
-                    height: 1.0,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              )
-          ],
+              ),
+            )
         ],
       ),
     );
