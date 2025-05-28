@@ -11,6 +11,7 @@
 migrate_working_dir/
 uploads/
 backend/garden_glossary_backend_structure.txt
+frontend/android/app/.cxx/
 
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
