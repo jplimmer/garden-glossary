@@ -140,16 +140,20 @@ class HomePage extends ConsumerWidget with ErrorHandlingMixin {
           ),
           // Hamburger menu button
           const Positioned(
-            right: 0,
-            top: 30,
-            child: HamburgerMenuButton(),
+            right: 10,
+            top: 5,
+            child: SafeArea(
+              child: HamburgerMenuButton()
+            ),
           ),
           // Reset and HealthCheck buttons
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: _buildActionButtons(ref, theme),
+            child: SafeArea(
+              child: _buildActionButtons(ref, theme)
+            ),
           ),
         ],
       ),
