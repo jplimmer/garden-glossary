@@ -9,6 +9,7 @@
 .history
 .svn/
 migrate_working_dir/
+.onedriveignore
 uploads/
 backend/garden_glossary_backend_structure.txt
 frontend/android/app/.cxx/
