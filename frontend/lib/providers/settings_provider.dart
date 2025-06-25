@@ -13,13 +13,13 @@ class SettingsState {
   final bool saveImages;
   final bool textStreamingEffect;
   final bool saveLogsOption;
-  final String imageSavePath;
+  final String imageSaveAlbum;
 
   const SettingsState({
     required this.saveImages,
     required this.textStreamingEffect,
     required this.saveLogsOption,
-    required this.imageSavePath,
+    required this.imageSaveAlbum,
   });
 
   /// Creates a copy of the current state with specified fields replaced
@@ -27,13 +27,13 @@ class SettingsState {
     bool? saveImages,
     bool? textStreamingEffect,
     bool? saveLogsOption,
-    String? imageSavePath,
+    String? imageSaveAlbum,
   }) {
     return SettingsState(
       saveImages: saveImages ?? this.saveImages,
       textStreamingEffect: textStreamingEffect ?? this.textStreamingEffect,
       saveLogsOption: saveLogsOption ?? this.saveLogsOption,
-      imageSavePath: imageSavePath ?? this.imageSavePath,
+      imageSaveAlbum: imageSaveAlbum ?? this.imageSaveAlbum,
     );
   }
 
@@ -43,7 +43,7 @@ class SettingsState {
       'saveImages': saveImages,
       'textStreamingEffect': textStreamingEffect,
       'saveLogsOption': saveLogsOption,
-      'imageSavePath': imageSavePath,
+      'imageSaveAlbum': imageSaveAlbum,
     };
   }  
 }
@@ -53,7 +53,7 @@ class SettingsKeys {
   static const String saveImages = 'saveImages';
   static const String textStreamingEffect = 'textStreamingEffect';
   static const String saveLogsOption = 'saveLogsOption';
-  static const String imageSavePath = 'imageSavePath';
+  static const String imageSaveAlbum = 'imageSaveAlbum';
 }
 
 /// Notifier that manages the settings state
@@ -66,7 +66,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     saveImages: false,
     textStreamingEffect: true,
     saveLogsOption: false,
-    imageSavePath: '',
+    imageSaveAlbum: '',
   ));
   
   /// Initialises the settings from SharedPreferences
@@ -80,24 +80,26 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   /// Loads all settings from SharedPreferences
   Future<void> loadSettings() async {
-    // Get default path for images
-    String defaultPath = '';
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      defaultPath = path.join(directory.path, 'images');
+    // // Get default path for images
+    // String defaultPath = '';
+    // try {
+    //   final directory = await getApplicationDocumentsDirectory();
+    //   defaultPath = path.join(directory.path, 'images');
 
-      // Create directory if it doesn't exist
-      ensureDirectoryExists(defaultPath);
-    } catch (e) {
-      _logger.warning('Failed to get default image path');
-      throw Exception('Failed to save image.');
-    }
+    //   // Create directory if it doesn't exist
+    //   ensureDirectoryExists(defaultPath);
+    // } catch (e) {
+    //   _logger.warning('Failed to get default image path');
+    //   throw Exception('Failed to save image.');
+    // }
     
+    String defaultAlbum = 'Garden-Glossary';
+
     state = SettingsState(
       saveImages: _prefs.getBool(SettingsKeys.saveImages) ?? false,
       textStreamingEffect: _prefs.getBool(SettingsKeys.textStreamingEffect) ?? true,
       saveLogsOption: _prefs.getBool(SettingsKeys.saveLogsOption) ?? false,
-      imageSavePath: _prefs.getString(SettingsKeys.imageSavePath) ?? defaultPath,
+      imageSaveAlbum: _prefs.getString(SettingsKeys.imageSaveAlbum) ?? defaultAlbum,
     );
   }
 
@@ -126,13 +128,13 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   }
 
   /// Updates the image save path setting
-  Future<void> setImageSavePath(String userPath) async {
+  Future<void> setImageSaveAlbum(String albumName) async {
     // Validate the path is usable
     try {
-      ensureDirectoryExists(userPath);
+      ensureDirectoryExists(albumName);
 
-      state = state.copyWith(imageSavePath: userPath);
-      await _prefs.setString(SettingsKeys.imageSavePath, userPath);
+      state = state.copyWith(imageSaveAlbum: albumName);
+      await _prefs.setString(SettingsKeys.imageSaveAlbum, albumName);
     } catch (e) {
       _logger.warning('Failed to set image save path: $e');
     }
@@ -140,15 +142,15 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     String rootFolderName = 'Pictures';
     String folderName = '';
 
-    if (userPath.contains(rootFolderName)) {
-        final List<String> parts = userPath.split(path.separator);
+    if (albumName.contains(rootFolderName)) {
+        final List<String> parts = albumName.split(path.separator);
         final int picturesIndex = parts.indexOf(rootFolderName);
         if (picturesIndex != -1 && picturesIndex < parts.length - 1) {
           folderName = parts.sublist(picturesIndex + 1).join(path.separator);
         }
       } else {
         // If the user's path doesn't contain 'Pictures', save directly there
-        folderName = userPath;
+        folderName = albumName;
         rootFolderName = 'Pictures';
       }
 
@@ -169,13 +171,13 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       saveImages: false,
       textStreamingEffect: true,
       saveLogsOption: false,
-      imageSavePath: defaultPath,
+      imageSaveAlbum: defaultPath,
     );
 
     await _prefs.setBool(SettingsKeys.saveImages, false);
     await _prefs.setBool(SettingsKeys.textStreamingEffect, true);
     await _prefs.setBool(SettingsKeys.saveLogsOption, false);
-    await _prefs.setString(SettingsKeys.imageSavePath, defaultPath);    
+    await _prefs.setString(SettingsKeys.imageSaveAlbum, defaultPath);    
   }
 }
 
@@ -186,9 +188,9 @@ final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>(
   return notifier;
 });
 
-/// Provider that exposes only the imageSavePath
-final imageSavePathProvider = Provider<String>((ref) {
-  return ref.watch(settingsProvider).imageSavePath;
+/// Provider that exposes only the imageSaveAlbum
+final imageSaveAlbumProvider = Provider<String>((ref) {
+  return ref.watch(settingsProvider).imageSaveAlbum;
 });
 
 /// Helper function to ensure a directory exists

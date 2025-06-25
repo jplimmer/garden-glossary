@@ -25,6 +25,7 @@ import 'package:garden_glossary/widgets/input/user_image_container.dart';
 import 'package:garden_glossary/widgets/results/match_image_container.dart';
 import 'package:garden_glossary/widgets/results/id_box.dart';
 import 'package:garden_glossary/widgets/results/detail_box.dart';
+import 'package:image_picker/image_picker.dart';
 
 /// Main home page of the Garden Glossary app
 /// 
@@ -38,6 +39,7 @@ class HomePage extends ConsumerWidget with ErrorHandlingMixin {
   /// Handles when the user submits an image for identification
   void _handleSubmit(WidgetRef ref) {
     final imageState = ref.read(imageProvider);
+    final settings = ref.read(settingsProvider);
 
     if (imageState.image == null) {
       showErrorSnackBar(
@@ -45,6 +47,14 @@ class HomePage extends ConsumerWidget with ErrorHandlingMixin {
         errorType: ErrorType.general,
         errorMessage: 'Please select an image first');
       return;
+    }
+
+    // Save image if settings require it
+    debugPrint('imageState.source: ${imageState.source}');
+    debugPrint('not-null: ${imageState.source != null}');
+    debugPrint('ImageSource.camera: ${imageState.source == ImageSource.camera}');
+    if (imageState.source != null && imageState.source == ImageSource.camera) {
+        ref.read(imageProvider.notifier).saveImageToGalleryAlbum(albumName: settings.imageSaveAlbum);
     }
 
     // Get the selected organ
@@ -140,8 +150,8 @@ class HomePage extends ConsumerWidget with ErrorHandlingMixin {
           ),
           // Hamburger menu button
           const Positioned(
-            right: 10,
-            top: 5,
+            right: 0,
+            top: 0,
             child: SafeArea(
               child: HamburgerMenuButton()
             ),
@@ -183,7 +193,7 @@ class HomePage extends ConsumerWidget with ErrorHandlingMixin {
           children: [
             // Title or user-selected image container
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 30),
               child: UserImageContainer(
                 image: imageState.image,
                 isSubmitted: uiState.isSubmitted,
@@ -273,7 +283,7 @@ class HomePage extends ConsumerWidget with ErrorHandlingMixin {
         ),
         // PlantNet image container (displayed on top of Results when expanded)
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 30),
           child: MatchImageContainer(
             loading: plantServicesState.idState == IdentificationState.loading,
             imageUrls: plantServicesState.matches.isNotEmpty && selectedIndex < plantServicesState.matches.length

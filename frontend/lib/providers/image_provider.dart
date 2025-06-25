@@ -1,10 +1,9 @@
 import 'dart:io';
-// import 'package:path/path.dart' as path;
-// import 'package:mime/mime.dart';
+import 'package:gal/gal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:garden_glossary/models/image_source.dart';
 import 'package:garden_glossary/services/image_picker_service.dart';
-import 'package:garden_glossary/providers/settings_provider.dart';
+// import 'package:garden_glossary/providers/settings_provider.dart';
 import 'package:garden_glossary/utils/logger.dart';
 
 final _logger = AppLogger.getLogger('ImageProvider');
@@ -65,13 +64,6 @@ class ImageNotifier extends StateNotifier<ImageState> {
       final image = await _imagePickerService.takePhoto();
 
       if (image != null) {
-        // Save image if settings require it
-        final settings = _ref.read(settingsProvider);
-        if (settings.saveImages) {
-          _logger.info('Save Image function would be called here');
-          // _saveImagePermanently(image);
-        }
-
         state = state.copyWith(
           image: image,
           source: ImageSource.camera,
@@ -116,6 +108,31 @@ class ImageNotifier extends StateNotifier<ImageState> {
     }
   }
 
+  /// Save image to the user's gallery
+  Future<void> saveImageToGalleryAlbum({required String albumName}) async {
+    state = state.copyWith(isProcessing: true);
+    
+    final image = state.image;
+    if (image == null) {
+      _logger.warning('No image to save.');
+      return;
+    }
+    try {
+      _logger.debug('Saving image to gallery...');
+      await Gal.putImage(
+        image.path,
+        album: albumName,
+      );
+      _logger.info('Image saved to gallery.');
+    } catch (e) {
+      _logger.error('Failed to save image to gallery: $e');
+      state = state.copyWith(
+        errorMessage: 'Failed to save image to gallery: ${e.toString()}',
+        isProcessing: false,
+      );
+    }
+  }
+  
   /// Reset image state
   void reset() {
     state = state.reset();
