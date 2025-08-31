@@ -1,14 +1,16 @@
 """Service to extract key cultivation details about a plant from the RHS website."""
 import asyncio
-from fastapi import status
-import requests
 import json
-from bs4 import BeautifulSoup
-from app.config import settings
-from app.models import Size, Soil, Position, PlantDetails
-from app.exceptions import PlantServiceErrorCode, PlantServiceException
-from typing import Optional, List
 import logging
+from typing import List, Optional
+
+import requests
+from bs4 import BeautifulSoup
+from fastapi import status
+
+from app.config import settings
+from app.exceptions import PlantServiceErrorCode, PlantServiceException
+from app.models import PlantDetails, Position, Size, Soil
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +55,7 @@ class PlantScraper:
                 message=f"Failed to parse {selector} section",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     def _extract_field(self, panel: BeautifulSoup, field_name: str) -> Optional[str]:
         """
         Extract a single field value from a panel.
@@ -72,7 +74,7 @@ class PlantScraper:
         else:
             logger.warning(f"H6 tag '{field_name}' not found")
         return None
-    
+
     def _extract_list_field(self, panel: BeautifulSoup, field_name: str) -> List[str]:
         """
         Extract a field with multiple strings from a panel.
@@ -87,15 +89,15 @@ class PlantScraper:
         field_h6 = panel.find('h6', string=field_name)
         if not field_h6:
             return []
-        
+
         parent = field_h6.find_parent('div', class_='l-module')
         if not parent:
             return []
-        
-        return [span.text.strip().replace(',', '') 
+
+        return [span.text.strip().replace(',', '')
                 for span in parent.find_all('span')
                 if span.text.strip()]
-    
+
     def _extract_size(self, soup: BeautifulSoup) -> Optional[Size]:
         """
         Extract plant size information from the parsed HTML.
@@ -110,13 +112,13 @@ class PlantScraper:
         if not size_panel:
             logger.warning("Size panel not found in soup")
             return None
-        
+
         return Size(
             height = self._extract_field(size_panel, 'Ultimate height'),
             spread = self._extract_field(size_panel, 'Ultimate spread'),
             time_to_height = self._extract_field(size_panel, 'Time to ultimate height'),
         )
-    
+
     def _extract_hardiness(self, soup: BeautifulSoup) -> Optional[str]:
         """
         Extract plant hardiness from the parsed HTML.
@@ -131,7 +133,7 @@ class PlantScraper:
         if not pos_panel:
             logger.warning("Position panel not found in soup")
             return None
-        
+
         logger.debug("Searching for hardiness information in Position panel")
         for h6 in pos_panel.find_all('h6', class_='u-m-b-0'):
             if 'Hardiness' in h6.get_text():
@@ -148,9 +150,9 @@ class PlantScraper:
                 else:
                     logger.debug("No rating span found or empty text")
 
-        logger.warning("Hardiness information not found in Position panel")                    
+        logger.warning("Hardiness information not found in Position panel")
         return 'Hardiness rating not found'
-    
+
     def _extract_soil(self, soup: BeautifulSoup) -> Optional[Soil]:
         """
         Extract soil requirements from the parsed HTML.
@@ -165,7 +167,7 @@ class PlantScraper:
         if not gc_panel:
             logger.warning("Growing conditions panel not found in soup")
             return None
-        
+
         logger.debug("Searching for soil information in Growing conditions panel")
         # Extract soil types
         soil_types = []
@@ -191,7 +193,7 @@ class PlantScraper:
             return soil_info
         logger.warning("Soil information not found in Growing conditions panel")
         return None
-       
+
     def _extract_position(self, soup: BeautifulSoup) -> Optional[Position]:
         """
         Extract position and sunlight requirements from the parsed HTML.
@@ -206,15 +208,15 @@ class PlantScraper:
         if not pos_panel:
             logger.warning("Position panel not found in soup")
             return None
-        
+
         content = pos_panel.find('div', class_='plant-attributes__content')
         if not content:
             logger.warning("Plant attributes content not found in Position panel")
             return None
 
-        logger.debug("Searching for position information in Position panel")        
+        logger.debug("Searching for position information in Position panel")
         position = Position()
-        
+
         # Extract sun info
         sun_types = []
         for flag in content.find_all('div', class_='flag--tiny'):
@@ -245,7 +247,7 @@ class PlantScraper:
             return position
         logger.warning("Position info not found in Position panel")
         return None
-    
+
     def _extract_href_text_field(self, soup: BeautifulSoup, field_name: str) -> Optional[str]:
         """
         Extract text section with href links from the parsed HTML.
@@ -261,17 +263,17 @@ class PlantScraper:
         if not field_div:
             logger.warning(f"H5 tag {field_name} not found in soup")
             return None
-        
+
         parent_span = field_div.find_parent('span')
         if not parent_span:
             logger.warning(f"Parent span for {field_name} not found in soup")
             return None
-        
+
         p_tag = parent_span.find('p')
         if not p_tag:
             logger.warning(f"P tag for {field_name} not found in soup")
             return None
-        
+
         text_parts = []
         for element in p_tag.children:
             if element.name == 'a' and element.get('href'):
@@ -286,10 +288,10 @@ class PlantScraper:
 
         if full_text:
             logger.debug(f"Successfully extracted html text for {field_name}: {full_text}")
-            return full_text 
+            return full_text
         logger.warning(f"Html text for {field_name} not found in soup")
-        return None    
-       
+        return None
+
     def search_rhs_plants(self, species: str) -> Optional[PlantDetails]:
         """
         Perform a search for a plant species on the RHS website.
@@ -309,7 +311,7 @@ class PlantScraper:
                 message="Species name cannot be empty",
                 status_code=status.HTTP_400_BAD_REQUEST
             )
-        
+
         headers = {
             "accept": "application/json, text/plain, */*",
             "content-type": "application/json",
@@ -322,7 +324,7 @@ class PlantScraper:
             "startFrom": 0,
             "keywords": species
         }
-        
+
         try:
             logger.info(f"Sending search request for {species}...")
             response = requests.post(
@@ -354,9 +356,9 @@ class PlantScraper:
                 message="Empty response from RHS search API",
                 status_code=status.HTTP_404_NOT_FOUND,
             )
-        
+
         return search_results
-    
+
     def find_match(self, species: str, search_results: List[dict]) -> str:
         """
         Find the best matching plant URL from search results.
@@ -392,7 +394,7 @@ class PlantScraper:
                     match_found = True
                     logger.info(f"'Bracket match' found for '{name}'")
                     return self._get_match_link(result, name)
-                
+
         # If no match, raise Exception
         if not match_found:
             logger.warning(f"No match found for {species}")
@@ -401,7 +403,7 @@ class PlantScraper:
                 message=f"No matching search results found for '{species}'",
                 status_code=status.HTTP_404_NOT_FOUND
             )
-               
+
     def _get_match_link(self, match: dict, name: str) -> str:
         """Return RHS url for plant."""
         id = match.get("id")
@@ -489,21 +491,21 @@ class PlantScraper:
             if full_details_element:
                 logger.info("Found full details element")
                 return self._extract_all_details(full_details_element)
-            
+
             elif summary_element:
                 raise PlantServiceException(
                     error_code=PlantServiceErrorCode.NO_RESULTS_FOUND,
                     message=f"RHS has no detailed information for '{species}', only a brief summary",
                     status_code=status.HTTP_404_NOT_FOUND
                 )
-           
+
             else:
                 raise PlantServiceException(
                     error_code=PlantServiceErrorCode.ELEMENT_ERROR,
-                    message=f"Plant details elements not found",
+                    message="Plant details elements not found",
                     status_code=status.HTTP_404_NOT_FOUND
                 )
-            
+
         except PlantServiceException:
             raise
         except Exception as e:
@@ -514,7 +516,7 @@ class PlantScraper:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 details={"error": str(e)}
             )
-              
+
     def _extract_all_details(self, soup: BeautifulSoup) -> PlantDetails:
         """
         Extract all plant details from the parsed HTML.
@@ -559,14 +561,14 @@ class PlantDetailsRhsService:
             scraper = PlantScraper(base_url=settings.RHS_BASE_URL)
 
             details = await asyncio.to_thread(scraper.rhs_plant_search, plant)
-            
+
             if details is None:
                 raise PlantServiceException(
                     error_code=PlantServiceErrorCode.NO_RESULTS_FOUND,
                     message=f"No details found on RHS website for '{plant}'",
                     status_code=status.HTTP_404_NOT_FOUND
                 )
-            
+
             try:
                 logger.info(f"RHS details: {details}")
                 return details
@@ -593,4 +595,4 @@ class PlantDetailsRhsService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 details={"error": str(e)}
             )
-    
+

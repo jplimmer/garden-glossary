@@ -1,12 +1,14 @@
 """Service to identify plant species based on uploaded image, using the PlantNet API."""
-import os
-import requests
 import json
-from fastapi import status
-from app.models import Organ
-from app.exceptions import PlantServiceErrorCode, PlantServiceException
-from app.config import settings
 import logging
+import os
+
+import requests
+from fastapi import status
+
+from app.config import settings
+from app.exceptions import PlantServiceErrorCode, PlantServiceException
+from app.models import Organ
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +42,8 @@ class PlantIdentificationService:
 
                 logger.info("Calling PlantNet API...")
                 response = requests.post(
-                    url=settings.PLANTNET_ENDPOINT, 
-                    files=files, 
+                    url=settings.PLANTNET_ENDPOINT,
+                    files=files,
                     data=data
                 )
                 logger.debug(f"Response: {response}")
@@ -64,7 +66,7 @@ class PlantIdentificationService:
 
                     logger.info(f"PlantNet matches: {matches}")
                     return {'matches': matches}
-                
+
                 # Handle 'Species Not Found'
                 elif response.status_code == 404:
                     raise PlantServiceException(
@@ -107,7 +109,7 @@ class PlantIdentificationService:
                 message=str(e),
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     @staticmethod
     def _extract_image_urls(images: list, size: str = "s", max_results: int = None) -> list:
         """
@@ -129,4 +131,3 @@ class PlantIdentificationService:
                     break
         return image_urls
 
-    

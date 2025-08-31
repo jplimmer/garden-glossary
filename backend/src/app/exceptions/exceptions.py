@@ -6,12 +6,14 @@ providing a centralised location for error handling and documentation.
 """
 
 from enum import Enum
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from fastapi import status
+
 
 class PlantServiceErrorCode(Enum):
     """Enumeration of possible error codes."""
-    
+
     SERVICE_INITIALIZATION = "SERVICE_INIT_001"
     BROWSER_ERROR = "BROWSER_002"
     COOKIE_CONSENT_FAILED = "COOKIE_003"

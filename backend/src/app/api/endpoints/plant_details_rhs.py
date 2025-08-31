@@ -1,7 +1,9 @@
+import logging
+
 from fastapi import APIRouter, status
+
 from app.models import PlantDetailRequest, PlantDetailResponse
 from app.services import PlantDetailsRhsService
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +20,6 @@ router = APIRouter(
 )
 async def plant_details(plant_request: PlantDetailRequest) -> PlantDetailResponse:
     service = PlantDetailsRhsService()
-    details = await service.retrieve_plant_details(plant_request.plant)    
+    details = await service.retrieve_plant_details(plant_request.plant)
     return PlantDetailResponse(**details.to_dict())
 

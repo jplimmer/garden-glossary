@@ -1,3 +1,3 @@
-from .plant_identification import PlantIdentificationService
-from .plant_details_rhs import PlantDetailsRhsService
 from .plant_details_llm import PlantDetailsLlmService
+from .plant_details_rhs import PlantDetailsRhsService
+from .plant_identification import PlantIdentificationService

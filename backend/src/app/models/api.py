@@ -1,6 +1,8 @@
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
+
 
 class Organ(str, Enum):
     """Enumeration of possible organs to pass to PlantNet API."""
@@ -42,27 +44,27 @@ class PlantIdentificationResponse(BaseModel):
                 "status_code": 200,
                 "matches": {
                     0: {
-                        'species': 'Tulipa gesneriana', 
-                        'genus': 'Tulipa', 
-                        'score': 0.82973, 
+                        'species': 'Tulipa gesneriana',
+                        'genus': 'Tulipa',
+                        'score': 0.82973,
                         'commonNames': ["Didier's tulip", 'Garden tulip', 'Tulip'],
                         'imageUrls': [
                             'https://bs.plantnet.org/image/s/85a776b7862898225597accc0d232eb3f9cc56b3',
                             'https://bs.plantnet.org/image/s/f0abf2717be1b13e35c0f4f25c7e1990f4539dac',
                             'https://bs.plantnet.org/image/s/8e11ba4efc2223273ce96551ee8a5565c3c9b498'
                         ]
-                    }, 
+                    },
                     1: {
-                        'species': 'Tulipa kaufmanniana', 
-                        'genus': 'Tulipa', 
-                        'score': 0.02704, 
+                        'species': 'Tulipa kaufmanniana',
+                        'genus': 'Tulipa',
+                        'score': 0.02704,
                         'commonNames': ['Water-lily tulip', "Kaufmann's Tulip"],
                         'imageUrls': []
-                    }, 
+                    },
                     2: {
-                        'species': 'Tulipa fosteriana', 
-                        'genus': 'Tulipa', 
-                        'score': 0.01164, 
+                        'species': 'Tulipa fosteriana',
+                        'genus': 'Tulipa',
+                        'score': 0.01164,
                         'commonNames': [],
                         'imageUrls': ['https://bs.plantnet.org/image/s/e161956316b0476b0ade94784a87d8c7e8018844']
                     }

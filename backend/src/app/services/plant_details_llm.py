@@ -1,13 +1,20 @@
 """Service to find key cultivation details about a plant using an LLM."""
-from typing import Dict
-import uuid
 import json
-from fastapi import status
-from anthropic import AsyncAnthropic, APIStatusError, APIConnectionError, APITimeoutError
-from app.config import settings
-from app.exceptions import PlantServiceException, PlantServiceErrorCode
-from app.models import PlantDetails
 import logging
+import uuid
+from typing import Dict
+
+from anthropic import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AsyncAnthropic,
+)
+from fastapi import status
+
+from app.config import settings
+from app.exceptions import PlantServiceErrorCode, PlantServiceException
+from app.models import PlantDetails
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +49,8 @@ class PlantAnthropicClient:
             "pruning": "Specific pruning instructions",
         }}
         """
-    
-    async def get_plant_details(self, plant_name: str) -> Dict:        
+
+    async def get_plant_details(self, plant_name: str) -> Dict:
         request_id = str(uuid.uuid4())
         logger.info(f"Request {request_id} - calling Anthropic API for plant: {plant_name}")
 
@@ -74,7 +81,7 @@ class PlantAnthropicClient:
                     message="Failed to parse plant details from LLM response",
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-            
+
         except APIStatusError as e:
             if e.status_code in [401, 403]:
                 logger.error(f"Request {request_id} - Anthropic authentication error: {str(e)}")
@@ -117,9 +124,9 @@ class PlantAnthropicClient:
             logger.error(f"Request {request_id} - Unexpected error: {str(e)}", exc_info=True)
             raise PlantServiceException(
                 error_code=PlantServiceErrorCode.SERVICE_ERROR,
-                message=f"Unexpected error retrieving plant details",
+                message="Unexpected error retrieving plant details",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )            
+            )
 
     def _validate_plant_details(self, details: Dict) -> None:
         """Validate that the returned JSON has the expected structure."""

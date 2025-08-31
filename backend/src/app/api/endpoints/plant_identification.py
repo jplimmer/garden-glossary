@@ -1,10 +1,12 @@
+import logging
 import os
 import uuid
-from fastapi import APIRouter, File, Form, UploadFile, status, Depends
+
+from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+
+from app.config import get_settings
 from app.models import Organ, PlantIdentificationResponse
 from app.services import PlantIdentificationService
-from app.config import get_settings
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +25,10 @@ async def identify_plant(
     file: UploadFile = File(...),
     organ: Organ = Form(...),
     settings = Depends(get_settings)
-):  
+):
     # Ensure uploads directory exists
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    
+
     # Generate a unique filename
     file_extension = file.filename.split('.')[-1]
     unique_filename = f"{uuid.uuid4()}.{file_extension}"
@@ -40,14 +42,14 @@ async def identify_plant(
             file_object.write(await file.read())
         file_saved = True
         logger.debug('File saved.')
-        
+
         # Identify plant using PlantNet API
         service = PlantIdentificationService()
         result = service.identify_plant(file_location, organ)
-                
+
         # Return response based on service result
         return PlantIdentificationResponse(matches=result['matches'])
-                    
+
     finally:
         # Remove file after processing
         if file_saved and os.path.exists(file_location):

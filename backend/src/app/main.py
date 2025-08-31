@@ -1,17 +1,20 @@
 import os
 import sys
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import logging
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 
-from app.config import settings, lambda_logging_context
-from app.models import ErrorResponse
-from app.api.endpoints import plant_identification, plant_details_rhs, plant_details_llm
+from app.api.endpoints import plant_details_llm, plant_details_rhs, plant_identification
+from app.config import settings
 from app.exceptions import PlantServiceException
-import logging
+from app.models import ErrorResponse
+
 
 def create_application() -> FastAPI:
     # Configure logging globally
@@ -31,7 +34,7 @@ def create_application() -> FastAPI:
         * plant-details-llm: Fallback service if plant-details-rhs fails - calls Anthropic API to return plant details in same style and format as plant-details-rhs service.
         """
     )
-    
+
     # Add CORS middleware to allow requests from mobile app
     app.add_middleware(
         CORSMiddleware,
@@ -59,7 +62,7 @@ def create_application() -> FastAPI:
                 details=exc.details
             ).model_dump()
         )
- 
+
     # Include routers
     app.include_router(plant_identification.router, prefix="/api/v1")
     app.include_router(plant_details_rhs.router, prefix="/api/v1")
@@ -70,7 +73,7 @@ def create_application() -> FastAPI:
     async def health_check():
         context_logger.info("Health check endpoint called")
         return {"status": "healthy"}
-    
+
     # Add environment endpoint:
     @app.get("/env", tags=["api_health"])
     async def env_check():

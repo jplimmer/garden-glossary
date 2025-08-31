@@ -1,11 +1,12 @@
+import logging
 import os
 import sys
-import logging
-from typing import Optional, Literal
+from functools import lru_cache
+from typing import Literal, Optional
+
+import boto3
 from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings
-import boto3
-from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
@@ -57,14 +58,14 @@ class Settings(BaseSettings):
             ssm_client = boto3.client("ssm", region_name=region_name)
             response = ssm_client.get_parameters(Names=names, WithDecryption=with_decryption)
             secrets = {param["Name"]: param["Value"] for param in response["Parameters"]}
-            
+
             # Update any None values with secrets
             for key, value in secrets.items():
                 if hasattr(self, key) and getattr(self, key) is None:
                     setattr(self, key, value)
         except Exception as e:
             logger.error(f"Error retrieving AWS SSM Parameters: {e}")
-    
+
     def setup_logging(self):
         """Configure logging for AWS Lambda and CloudWatch compatibility."""
         # Create stream handler that writes to stdout
@@ -78,7 +79,7 @@ class Settings(BaseSettings):
 
         # Ensure handler is the only one on the root logger
         root_logger.handlers = [handler]
-        
+
         # Set level for specific loggers to reduce overly verbose logs
         logging.getLogger('urllib3').setLevel(logging.WARNING)
         logging.getLogger('botocore').setLevel(logging.WARNING)

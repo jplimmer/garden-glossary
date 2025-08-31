@@ -1,7 +1,9 @@
+import logging
+
 from fastapi import APIRouter, status
+
 from app.models import PlantDetailRequest, PlantDetailResponse
 from app.services import PlantDetailsLlmService
-import logging
 
 logger = logging.getLogger(__name__)
 

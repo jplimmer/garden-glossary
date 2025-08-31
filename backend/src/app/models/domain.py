@@ -1,7 +1,10 @@
-from dataclasses import dataclass, asdict
-from typing import Optional, Dict, List, Any
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, List, Optional
+
 from fastapi import status
-from app.exceptions import PlantServiceException, PlantServiceErrorCode
+
+from app.exceptions import PlantServiceErrorCode, PlantServiceException
+
 
 @dataclass
 class Size:
@@ -120,4 +123,4 @@ class PlantDetails:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 details={"class": self.__class__.__name__, "error": str(e)}
             )
-        
+
