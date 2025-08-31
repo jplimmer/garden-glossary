@@ -1,0 +1,29 @@
+name: Enforce Dev-to-Main Merge Rule
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-source-branch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check if source branch is dev or hotfix
+        run: |
+          echo "Source branch: ${{ github.head_ref }}"
+          echo "Target branch: ${{ github.base_ref }}"
+
+          # Allow merges from dev branch or hotfix branches
+          if [[ "${{ github.head_ref }}" == "dev" || "${{ github.head_ref }}" == hotfix/* ]]; then
+            echo "✅ Merge allowed: Source branch '${{ github.head_ref }}' can merge to main"
+            exit 0
+          else
+            echo "❌ Merge blocked: Only 'dev' branch or 'hotfix/*' branches can merge to main"
+            echo "Current source branch: '${{ github.head_ref }}'"
+            echo ""
+            echo "To fix this:"
+            echo "1. Merge your feature branch to 'dev' first"
+            echo "2. Then create a PR from 'dev' to 'main'"
+            exit 1
+          fi
