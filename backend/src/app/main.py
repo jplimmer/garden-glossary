@@ -32,7 +32,7 @@ def create_application() -> FastAPI:
         * identify-plant: Passes an uploaded image and 'organ' to the PlantNet API, to return the 3 most likely species matches.
         * plant-details-rhs: Searches RHS website for requested plant species and returns key cultivation details.
         * plant-details-llm: Fallback service if plant-details-rhs fails - calls Anthropic API to return plant details in same style and format as plant-details-rhs service.
-        """
+        """,
     )
 
     # Add CORS middleware to allow requests from mobile app
@@ -46,21 +46,20 @@ def create_application() -> FastAPI:
 
     # Register exception handler
     @app.exception_handler(PlantServiceException)
-    async def plant_service_exception_handler(request: Request, exc: PlantServiceException):
+    async def plant_service_exception_handler(
+        request: Request, exc: PlantServiceException
+    ):
         context_logger.error(
             f"PlantServiceException:  {exc.error_code.value} - {exc.message}",
-            extra={
-                'error_code': exc.error_code,
-                'details': exc.details
-            }
+            extra={"error_code": exc.error_code, "details": exc.details},
         )
         return JSONResponse(
             status_code=exc.status_code,
             content=ErrorResponse(
                 error_code=exc.error_code.value,
                 message=exc.message,
-                details=exc.details
-            ).model_dump()
+                details=exc.details,
+            ).model_dump(),
         )
 
     # Include routers
@@ -79,12 +78,13 @@ def create_application() -> FastAPI:
     async def env_check():
         env_info = {
             "AWS_EXECUTION_ENV": os.getenv("AWS_EXECUTION_ENV"),
-            "DOCKER_ENVIRONMENT": os.getenv("DOCKER_ENVIRONMENT")
+            "DOCKER_ENVIRONMENT": os.getenv("DOCKER_ENVIRONMENT"),
         }
         context_logger.info("Environment information retrieved", extra=env_info)
         return env_info
 
     return app
+
 
 # Create FastAPI application
 app = create_application()
@@ -95,8 +95,8 @@ handler = Mangum(app)
 if __name__ == "__main__":
     # Run the server if executed directly (local development)
     import uvicorn
+
     logger = logging.getLogger(__name__)
     logger.info("Starting local development server")
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port, reload=True)
-

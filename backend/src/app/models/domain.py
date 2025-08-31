@@ -19,6 +19,7 @@ class Size:
     Methods:
         to_dict: Convert information into Dict, raise PlantServiceException if error
     """
+
     height: Optional[str] = None
     spread: Optional[str] = None
     time_to_height: Optional[str] = None
@@ -31,8 +32,9 @@ class Size:
                 error_code=PlantServiceErrorCode.PARSING_ERROR,
                 message="Failed to convert data class to dictionary",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                details={"class": self.__class__.__name__, "error": str(e)}
+                details={"class": self.__class__.__name__, "error": str(e)},
             )
+
 
 @dataclass
 class Soil:
@@ -47,6 +49,7 @@ class Soil:
     Methods:
         to_dict: Convert information into Dict, raise PlantServiceException if error
     """
+
     types: List[str]
     moisture: List[str]
     ph_levels: List[str]
@@ -59,8 +62,9 @@ class Soil:
                 error_code=PlantServiceErrorCode.PARSING_ERROR,
                 message="Failed to convert data class to dictionary",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                details={"class": self.__class__.__name__, "error": str(e)}
+                details={"class": self.__class__.__name__, "error": str(e)},
             )
+
 
 @dataclass
 class Position:
@@ -70,11 +74,12 @@ class Position:
     Attributes:
         sun (list): Type of sun exposure plant should grow in (e.g. 'Full sun')
         aspect (str): Direction of sunlight plant should be exposed to (e.g. 'West-facing')
-        exposure (str): 
+        exposure (str):
 
     Methods:
         to_dict: Convert information into Dict, raise PlantServiceException if error
     """
+
     sun: Optional[List[str]] = None
     aspect: Optional[str] = None
     exposure: Optional[str] = None
@@ -87,8 +92,9 @@ class Position:
                 error_code=PlantServiceErrorCode.PARSING_ERROR,
                 message="Failed to convert data class to dictionary",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                details={"class": self.__class__.__name__, "error": str(e)}
+                details={"class": self.__class__.__name__, "error": str(e)},
             )
+
 
 @dataclass
 class PlantDetails:
@@ -106,6 +112,7 @@ class PlantDetails:
     Methods:
         to_dict: Convert information into Dict, raise PlantServiceException if error
     """
+
     size: Optional[Size] = None
     hardiness: Optional[str] = None
     soil: Optional[Soil] = None
@@ -121,6 +128,5 @@ class PlantDetails:
                 error_code=PlantServiceErrorCode.PARSING_ERROR,
                 message="Failed to convert data class to dictionary",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                details={"class": self.__class__.__name__, "error": str(e)}
+                details={"class": self.__class__.__name__, "error": str(e)},
             )
-

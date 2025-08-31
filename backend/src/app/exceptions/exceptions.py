@@ -1,7 +1,7 @@
 """
 Exceptions module for plant service operations.
 
-This module contains all custom exceptions and error codes used across the plant services, 
+This module contains all custom exceptions and error codes used across the plant services,
 providing a centralised location for error handling and documentation.
 """
 
@@ -25,6 +25,7 @@ class PlantServiceErrorCode(Enum):
     SERVICE_ERROR = "SERVICE_009"
     ELEMENT_ERROR = "ELEMENT_010"
 
+
 class PlantServiceException(Exception):
     """
     Custom exception for handling errors in plant services.
@@ -35,12 +36,13 @@ class PlantServiceException(Exception):
         status_code (int): HTTP status code
         details (Optional[Dict[str, Any]]): Detailed error message
     """
+
     def __init__(
         self,
         error_code: PlantServiceErrorCode,
         message: str,
         status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
     ):
         self.error_code = error_code
         self.message = message
@@ -50,4 +52,3 @@ class PlantServiceException(Exception):
 
     def __str__(self):
         return f"{self.error_code.value}: {self.message}"
-

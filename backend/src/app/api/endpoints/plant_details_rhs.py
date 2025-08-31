@@ -12,14 +12,14 @@ router = APIRouter(
     tags=["plant_details"],
 )
 
+
 @router.post(
     "/plant-details-rhs/",
     response_model=PlantDetailResponse,
     summary="Extract key cultivation details about a plant from the RHS website",
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
 )
 async def plant_details(plant_request: PlantDetailRequest) -> PlantDetailResponse:
     service = PlantDetailsRhsService()
     details = await service.retrieve_plant_details(plant_request.plant)
     return PlantDetailResponse(**details.to_dict())
-

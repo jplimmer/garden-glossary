@@ -11,6 +11,7 @@ from pydantic_settings import BaseSettings
 logger = logging.getLogger(__name__)
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
+
 class Settings(BaseSettings):
     # API keys (will be populated from .env or AWS SSM Parameter Store)
     PLANTNET_API_KEY: Optional[str] = None
@@ -23,7 +24,9 @@ class Settings(BaseSettings):
     # Application settings with defaults
     UPLOAD_DIR: str = "/tmp/uploads"
     RHS_BASE_URL: str = "https://www.rhs.org.uk/plants/search-results?query="
-    RHS_SEARCH_API_URL: str = "https://lwapp-uks-prod-psearch-01.azurewebsites.net/api/v1/plants/search"
+    RHS_SEARCH_API_URL: str = (
+        "https://lwapp-uks-prod-psearch-01.azurewebsites.net/api/v1/plants/search"
+    )
 
     # PlantNet API settings with defaults
     PROJECT: str = "all"
@@ -52,12 +55,18 @@ class Settings(BaseSettings):
         """Check if the application is running in an AWS environment."""
         return os.getenv("AWS_EXECUTION_ENV") is not None
 
-    def _load_ssm_parameters(self, names: list, region_name: str = "eu-west-2", with_decryption: bool = True) -> dict:
+    def _load_ssm_parameters(
+        self, names: list, region_name: str = "eu-west-2", with_decryption: bool = True
+    ) -> dict:
         """Load secrets from AWS SSM Parameter Store into settings."""
         try:
             ssm_client = boto3.client("ssm", region_name=region_name)
-            response = ssm_client.get_parameters(Names=names, WithDecryption=with_decryption)
-            secrets = {param["Name"]: param["Value"] for param in response["Parameters"]}
+            response = ssm_client.get_parameters(
+                Names=names, WithDecryption=with_decryption
+            )
+            secrets = {
+                param["Name"]: param["Value"] for param in response["Parameters"]
+            }
 
             # Update any None values with secrets
             for key, value in secrets.items():
@@ -81,29 +90,33 @@ class Settings(BaseSettings):
         root_logger.handlers = [handler]
 
         # Set level for specific loggers to reduce overly verbose logs
-        logging.getLogger('urllib3').setLevel(logging.WARNING)
-        logging.getLogger('botocore').setLevel(logging.WARNING)
-        logging.getLogger('boto3').setLevel(logging.WARNING)
-        logging.getLogger('python_multipart.multipart').setLevel(logging.WARNING)
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        logging.getLogger("botocore").setLevel(logging.WARNING)
+        logging.getLogger("boto3").setLevel(logging.WARNING)
+        logging.getLogger("python_multipart.multipart").setLevel(logging.WARNING)
 
         return root_logger
+
 
 def lambda_logging_context(logger, event=None, context=None):
     """Add Lambda-specific context to logs."""
     extra = {}
     if event:
-        extra['lambda_event'] = str(event)
+        extra["lambda_event"] = str(event)
     if context:
-        extra.update({
-            'function_name': context.function_name,
-            'function_version': context.function_version,
-            'invoked_function_arn': context.invoked_function_arn,
-            'memory_limit_in_mb': context.memory_limit_in_mb,
-            'aws_request_id': context.aws_request_id
-        })
+        extra.update(
+            {
+                "function_name": context.function_name,
+                "function_version": context.function_version,
+                "invoked_function_arn": context.invoked_function_arn,
+                "memory_limit_in_mb": context.memory_limit_in_mb,
+                "aws_request_id": context.aws_request_id,
+            }
+        )
 
     # Create a logger adapter to include extra content
     return logging.LoggerAdapter(logger, extra)
+
 
 @lru_cache
 def get_settings() -> Settings:
@@ -111,6 +124,6 @@ def get_settings() -> Settings:
     # For dependency injection
     return Settings()
 
+
 # For simple imports
 settings = Settings()
-
