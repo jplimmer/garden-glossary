@@ -1,26 +1,45 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
+# =============================================================================
+# GENERAL
+# =============================================================================
+
+# Operating System
 .DS_Store
-.atom/
-.buildlog/
-.history
-.svn/
-migrate_working_dir/
-uploads/
-backend/garden_glossary_backend_structure.txt
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
-# Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
-
-# User-specific stuff
+# Editor/IDE files
+.vscode/
 .idea/
-.gradle/
 *.iml
 *.ipr
 *.iws
+.atom/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+*.class
+.history
+
+# Version Control
+.svn/
+
+# Project specific
+uploads/
+backend/garden_glossary_backend_structure.txt
+
+
+# =============================================================================
+# FRONTEND (Flutter/Dart)
+# =============================================================================
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -32,10 +51,35 @@ backend/garden_glossary_backend_structure.txt
 .pub-cache/
 .pub/
 /build/
+frontend/build/
 frontend/android/app/.cxx/
+
+# Platform specific
+frontend/android/app/.cxx/
+frontend/android/.gradle/
+frontend/android/gradle/
+frontend/android/local.properties
+frontend/android/key.properties
+frontend/ios/Runner.xcworkspace/xcuserdata/
+frontend/ios/Runner.xcodeproj/xcuserdata/
+frontend/ios/Runner.xcodeproj/project.xcworkspace/xcuserdata/
+frontend/ios/Flutter/Generated.xcconfig
+frontend/ios/Flutter/flutter_export_environment.sh
+frontend/macos/Flutter/GeneratedPluginRegistrant.swift
 
 # Web related
 lib/generated_plugin_registrant.dart
+frontend/web/
+
+# Generated files
+*.g.dart
+*.freezed.dart
+*.chopper.dart
+
+# Build artifacts
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
 
 # Symbolication related
 app.*.symbols
@@ -43,27 +87,78 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
-# Android Studio will automatically add this file
-**/android/app/debug
-**/android/app/profile
-**/android/app/release
-
-# Generated files
-*.g.dart
-
-# Environment variables
-.env
-frontend/.env
+# Environment variables (Frontend)
+frontend/.env*
 frontend/.env.prod
 frontend/.env.dev
 frontend/.env.local
 frontend/.env.mock
 
-# VSCode settings
-.vscode/
 
-# Temporary files
-*.tmp
-*.bak
-*.swp
-*~
+# =============================================================================
+# BACKEND (Python/FastAPI/uv)
+# =============================================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# uv dependency manager
+.venv/
+backend/.venv/
+uv.lock
+
+# Environment variables (Backend)
+.env*
+backend/.env*
+backend/.env.local
+backend/.env.prod
+backend/.env.dev
+
+# Serverless
+backend/.serverless/
+backend/node_modules/
+backend/package-lock.json
+backend/serverless.env.yml
+
+# AWS Lambda
+.aws-sam/
+samconfig.toml
+.chalice/
+backend/.chalice/
+
+# FastAPI specific
+backend/logs/
+backend/uploads/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+backend/.pytest_cache/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Database
+*.db
+*.sqlite3
+backend/*.db
+backend/*.sqlite3
+
+# Logs
+backend/logs/
+*.log
+
+# Deployment
+backend/dist/
+backend/build/
