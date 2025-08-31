@@ -49,7 +49,8 @@ class PlantScraper:
             selector (str): Name of the section title (H6) to search for.
 
         Returns:
-            Optional[BeautifulSoup]: Soup for the section if title found, None otherwise.
+            Optional[BeautifulSoup]: Soup for the section if
+                title found, None otherwise.
         """
         try:
             panel = soup.find("h6", string=selector)
@@ -471,17 +472,23 @@ class PlantScraper:
 
         Args:
             url (str): The direct URL to the plant's details page on the RHS website.
-            species (str, optional): The name of the plant species, for context in error messages.
+            species (str, optional): The name of the plant species, for
+                context in error messages.
 
         Returns:
             Optional[PlantDetails]: Structured plant details if found, None otherwise.
 
         Raises:
-            PlantServiceException: If there are issues accessing or parsing the plant details.
+            PlantServiceException: If there are issues accessing or parsing
+                the plant details.
         """
         try:
             headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/134.0.0.0 Safari/537.36"
+                )
             }
 
             try:
@@ -518,7 +525,10 @@ class PlantScraper:
             elif summary_element:
                 raise PlantServiceException(
                     error_code=PlantServiceErrorCode.NO_RESULTS_FOUND,
-                    message=f"RHS has no detailed information for '{species}', only a brief summary",
+                    message=(
+                        f"RHS has no detailed information for '{species}',",
+                        "only a brief summary",
+                    ),
                     status_code=status.HTTP_404_NOT_FOUND,
                 )
 

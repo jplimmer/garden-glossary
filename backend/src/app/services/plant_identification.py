@@ -28,7 +28,8 @@ class PlantIdentificationService:
             matches (dict): 3 most likely plants that match the image.
 
         Raises:
-            PlantServiceException: If PlantNet cannot identify the species, or the service encounters an issue.
+            PlantServiceException: If PlantNet cannot identify the species, or
+                the service encounters an issue.
         """
         try:
             with open(image_path, "rb") as image_data:
@@ -128,7 +129,8 @@ class PlantIdentificationService:
         Args:
             images (list): List of image objects from the PlantNet API response.
             size (str): Size of image URLs to extract ("o", "m" or "s").
-            max_results (int, optional): Maximum number of URLs to return. If None, returns all URLs.
+            max_results (int, optional): Maximum number of URLs to return.
+                If None, returns all URLs.
 
         Returns:
             list: List of image URLs, limited by the max_result parameter if specified.

@@ -25,8 +25,11 @@ dev = [
     "ruff>=0.12.8",
 ]
 
-[tool.ruff]
+[tool.ruff.lint]
 select = ["E", "W", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
 
 [tool.mypy]
 strict = true
@@ -34,9 +37,3 @@ strict = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
-
-[project.scripts]
-lint = "ruff check ."
-format = "ruff format ."
-type-check = "mypy ."
-check-all = "bash -c 'ruff check . && ruff format --check . && mypy .'"

@@ -128,7 +128,8 @@ class PlantDetailResponse(BaseModel):
         size (Size): 'Size' object with information on ultimate plant size
         hardiness (str): RHS Hardiness rating and descriptor
         soil (Soil): 'Soil' object with information on soil requirements for plant
-        position (Position): 'Position' object with information on plant sunlight and shelter
+        position (Position): 'Position' object with information on
+            plant sunlight and shelter
         cultivation_tips (str): tips on cultivation
         pruning (str): tips on pruning
 
@@ -150,7 +151,8 @@ class PlantDetailResponse(BaseModel):
                         "spread": "0.1-0.5 metres",
                         "time_to_height": "1 year",
                     },
-                    "hardiness": "H6: hardy in all of UK and northern Europe (-20 to -15)",
+                    "hardiness": "H6: hardy in all of UK and "
+                    "northern Europe (-20 to -15)",
                     "soil": {
                         "types": ["Chalk", "Clay", "Loam", "Sand"],
                         "moisture": ["Moist but well-drained"],
@@ -170,7 +172,8 @@ class PlantDetailResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     """
-    Response model for errors in API services, to be returned to the frontend in a JSONResponse.
+    Response model for errors in API services, to be returned to
+    the frontend in a JSONResponse.
     """
 
     error_code: str

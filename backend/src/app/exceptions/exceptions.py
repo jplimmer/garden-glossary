@@ -1,8 +1,9 @@
 """
 Exceptions module for plant service operations.
 
-This module contains all custom exceptions and error codes used across the plant services,
-providing a centralised location for error handling and documentation.
+This module contains all custom exceptions and error codes used across
+the plant services, providing a centralised location for
+error handling and documentation.
 """
 
 from enum import Enum

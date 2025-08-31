@@ -26,9 +26,10 @@ class PlantAnthropicClient:
         self.model = model
 
     def get_llm_prompt(self, plant_name: str) -> str:
-        return f"""You are a gardening expert. I need detailed information about {plant_name}.
-        Return only a JSON object with the exact structure shown below, no other text or explanations.
-        The JSON must include all fields shown:
+        return f"""You are a gardening expert. I need detailed information
+        about {plant_name}. Return only a JSON object with the exact structure
+        shown below, no other text or explanations. The JSON must include
+        all fields shown:
 
         {{
             "size": {{
@@ -63,7 +64,8 @@ class PlantAnthropicClient:
                 model=self.model,
                 max_tokens=1024,
                 temperature=0.2,
-                system="You are a gardening expert. Provide accurate plant information in JSON format only.",
+                system="You are a gardening expert. Provide accurate plant "
+                "information in JSON format only.",
                 messages=[{"role": "user", "content": self.get_llm_prompt(plant_name)}],
             )
             logger.debug(f"Request {request_id} - Raw response: {response}")
@@ -77,7 +79,8 @@ class PlantAnthropicClient:
                 return details
             except json.JSONDecodeError as e:
                 logger.error(
-                    f"Request {request_id} - Failed to parse JSON response: {e}, content: {content_text[:100]}..."
+                    f"Request {request_id} - Failed to parse JSON response: {e},"
+                    "content: {content_text[:100]}..."
                 )
                 raise PlantServiceException(
                     error_code=PlantServiceErrorCode.PARSING_ERROR,
@@ -97,7 +100,8 @@ class PlantAnthropicClient:
                 )
             elif e.status_code in [429, 529]:
                 logger.error(
-                    f"Request {request_id} - Anthropic rate limit or capacity error: {str(e)}"
+                    f"Request {request_id} - Anthropic rate limit or ",
+                    "capacity error: {str(e)}",
                 )
                 raise PlantServiceException(
                     error_code=PlantServiceErrorCode.SERVICE_ERROR,

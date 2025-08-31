@@ -43,7 +43,8 @@ class Soil:
 
     Attributes:
         types (List[str]): List of soil types the plant can grow in (e.g. 'Chalk')
-        moisture (List[str]): List of descriptors for moisture levels the plant can grow in (e.g. 'Well-drained')
+        moisture (List[str]): List of descriptors for moisture levels the
+            plant can grow in (e.g. 'Well-drained')
         ph_levels (List[str]): List of pH bands the plant can grow in (e.g. 'Acidic')
 
     Methods:
@@ -73,7 +74,8 @@ class Position:
 
     Attributes:
         sun (list): Type of sun exposure plant should grow in (e.g. 'Full sun')
-        aspect (str): Direction of sunlight plant should be exposed to (e.g. 'West-facing')
+        aspect (str): Direction of sunlight plant should
+            be exposed to (e.g. 'West-facing')
         exposure (str):
 
     Methods:
@@ -105,7 +107,8 @@ class PlantDetails:
         size (Size): 'Size' object with information on ultimate plant size
         hardiness (str): RHS Hardiness rating and descriptor
         soil (Soil): 'Soil' object with information on soil requirements for plant
-        position (Position): 'Position' object with information on plant sunlight and shelter
+        position (Position): 'Position' object with information on
+            plant sunlight and shelter
         cultivation_tips (str): tips on cultivation
         pruning (str): tips on pruning
 

@@ -26,12 +26,17 @@ def create_application() -> FastAPI:
     app = FastAPI(
         title="Garden Glossary API",
         description="""
-        # API service for identifying a plant from an image and providing cultivation details.
-        
+        # API service for identifying a plant from an image and
+        # providing cultivation details.
+
         ## Features:
-        * identify-plant: Passes an uploaded image and 'organ' to the PlantNet API, to return the 3 most likely species matches.
-        * plant-details-rhs: Searches RHS website for requested plant species and returns key cultivation details.
-        * plant-details-llm: Fallback service if plant-details-rhs fails - calls Anthropic API to return plant details in same style and format as plant-details-rhs service.
+        * identify-plant: Passes an uploaded image and 'organ' to the PlantNet API,
+            to return the 3 most likely species matches.
+        * plant-details-rhs: Searches RHS website for requested plant species and
+            returns key cultivation details.
+        * plant-details-llm: Fallback service if plant-details-rhs fails -
+            calls Anthropic API to return plant details in same style and
+            format as plant-details-rhs service.
         """,
     )
 
